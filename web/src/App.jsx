@@ -11,10 +11,14 @@ import {
   EmailAuthProvider,
 } from "firebase/auth";
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 import {
   ArrowDownRight,
@@ -109,19 +113,26 @@ function deriveRegion(location) {
 }
 
 function normalizeJob(row) {
-  const skillsets = row.skillsets || "";
+  const isSupabaseSchema = Boolean(row.title && !row.jobtitle);
+  const skillsets = isSupabaseSchema
+    ? (Array.isArray(row.required_skills) ? row.required_skills : [])
+    : (row.skillsets || "").split(",").map((s) => s.trim()).filter(Boolean);
   return {
-    id: row.jobid || row.id,
-    title: row.jobtitle || "Untitled role",
+    id: isSupabaseSchema ? row.id : (row.jobid || row.id),
+    title: isSupabaseSchema ? row.title : (row.jobtitle || "Untitled role"),
     companyName: row.company || "Company",
     location: row.location || "",
     region: row.region || deriveRegion(row.location) || "",
-    experience: row.experience != null ? Number(row.experience) : 0,
-    coreSkills: skillsets.split(",").map((s) => s.trim()).filter(Boolean),
-    teamObjective: row.jobdesc || "",
-    postedAt: row.jobposted || "",
-    compensation: row.compensation || "",
-    isAvailable: row.isavailable !== false,
+    experience: isSupabaseSchema ? (row.min_experience != null ? Number(row.min_experience) : 0) : (row.experience != null ? Number(row.experience) : 0),
+    maxExperience: isSupabaseSchema ? (row.max_experience != null ? Number(row.max_experience) : 0) : 0,
+    coreSkills: skillsets,
+    teamObjective: isSupabaseSchema ? (row.description_text || "") : (row.jobdesc || ""),
+    postedAt: isSupabaseSchema ? (row.posted_at || "") : (row.jobposted || ""),
+    compensation: isSupabaseSchema ? (row.salary_min || row.salary_max ? `₹${row.salary_min || 0} – ₹${row.salary_max || 0}` : "") : (row.compensation || ""),
+    isAvailable: isSupabaseSchema ? (row.is_active !== false) : (row.isavailable !== false),
+    applyUrl: row.apply_url || "",
+    workMode: isSupabaseSchema ? (row.work_style || "Unspecified") : "Unspecified",
+    external: isSupabaseSchema,
   };
 }
 
@@ -474,16 +485,53 @@ export default function RouterApp() {
     const expectedLocation = profile.expectedLocation || "";
     const hasProfilePrefs = profileSkills.length > 0 || Boolean(targetTitle) || Boolean(expectedLocation);
 
-    if (!db) {
+    if (!db && !supabase) {
       setJobs([]);
       setMatchSource("none");
       setLoadingJobs(false);
       return;
     }
-    const q = query(collection(db, "jobs"), where("isavailable", "==", true));
-    getDocs(q).then((snap) => {
+
+    // Fetch jobs from Firestore (recruiter-posted)
+    const fetchFirestoreJobs = async () => {
+      if (!db) return [];
+      try {
+        const q = query(collection(db, "jobs"), where("isavailable", "==", true));
+        const snap = await getDocs(q);
+        return snap.docs.map((d) => ({
+          ...normalizeJob({ id: d.id, ...d.data() }),
+          source: "internal",
+        }));
+      } catch (e) {
+        console.error("Firestore jobs fetch error:", e);
+        return [];
+      }
+    };
+
+    // Fetch jobs from Supabase (external jobs)
+    const fetchSupabaseJobs = async () => {
+      if (!supabase) return [];
+      try {
+        const { data, error } = await supabase
+          .from("jobs")
+          .select("id,title,company,location,region,work_style,min_experience,max_experience,required_skills,description_text,apply_url,posted_at")
+          .eq("is_active", true)
+          .order("posted_at", { ascending: false });
+        if (error) throw error;
+        return (data || []).map((row) => ({
+          ...normalizeJob(row),
+          source: "external",
+          applyUrl: row.apply_url || "",
+        }));
+      } catch (e) {
+        console.error("Supabase jobs fetch error:", e);
+        return [];
+      }
+    };
+
+    Promise.all([fetchFirestoreJobs(), fetchSupabaseJobs()]).then(([firestoreJobs, supabaseJobs]) => {
       if (!active) return;
-      const allJobs = snap.docs.map((d) => normalizeJob({ id: d.id, ...d.data() }));
+      const allJobs = [...firestoreJobs, ...supabaseJobs];
 
       let matched = allJobs;
       let source = "all";
@@ -1012,6 +1060,7 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
       <button className="job-title-button" onClick={onDetails}><h2>{job.title}</h2></button>
       <div className="job-tags">
         {workMode !== "unspecified" && <span className="tag tag-mode">{job.workMode}</span>}
+        {job.external && <span className="tag tag-external">External</span>}
         {experienceRange(job) && <span className="tag">{experienceRange(job)}</span>}
       </div>
       <div className="salary-line"><span>{moneyRange(job)}</span><span className="salary-caption">annual compensation</span></div>
