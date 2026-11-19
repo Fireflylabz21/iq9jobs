@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, Star, ShieldCheck, MapPin, X } from "lucide-react";
+import { ArrowLeft, Check, Star, ShieldCheck, MapPin, X, Users } from "lucide-react";
 import { useRole } from "../context/RoleContext.jsx";
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../backend.js";
@@ -37,7 +37,9 @@ export default function CandidateReviewQueue({ onBack }) {
   const { user } = useRole();
   const [jobs, setJobs] = useState([]);
   const [candidates, setCandidates] = useState([]);
+  const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("applicants");
   const [actionShowing, setActionShowing] = useState(null);
   const [declineReason, setDeclineReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,11 +103,76 @@ export default function CandidateReviewQueue({ onBack }) {
       }
     };
 
+    const loadApplicants = async () => {
+      try {
+        const jobIds = jobs.map((j) => j.id);
+        if (jobIds.length === 0) {
+          if (active) setApplicants([]);
+          return;
+        }
+        const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
+        const snap = await getDocs(q);
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          const job = jobs.find((j) => j.id === data.jobId);
+          const candidate = candidates.find((c) => c.id === data.candidateId);
+          return {
+            id: data.id,
+            jobId: data.jobId,
+            jobTitle: job ? job.title : "Unknown role",
+            candidateId: data.candidateId,
+            candidateName: candidate ? candidate.displayName : "Candidate",
+            candidateEmail: candidate ? candidate.email : "",
+            action: data.action,
+            status: data.status,
+            reason: data.reason || "",
+            createdAt: data.createdAt,
+          };
+        }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        if (active) setApplicants(list);
+      } catch (e) {
+        if (active) setError(`Could not load applicants: ${e.message || "unknown error"}`);
+      }
+    };
+
     loadJobs();
     loadCandidates();
 
     return () => { active = false; };
   }, [user, db]);
+
+  useEffect(() => {
+    if (activeTab === "applicants") {
+      void (async () => {
+        const jobIds = jobs.map((j) => j.id);
+        if (jobIds.length === 0) { setApplicants([]); return; }
+        try {
+          const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
+          const snap = await getDocs(q);
+          const list = snap.docs.map((d) => {
+            const data = d.data();
+            const job = jobs.find((j) => j.id === data.jobId);
+            const candidate = candidates.find((c) => c.id === data.candidateId);
+            return {
+              id: data.id,
+              jobId: data.jobId,
+              jobTitle: job ? job.title : "Unknown role",
+              candidateId: data.candidateId,
+              candidateName: candidate ? candidate.displayName : "Candidate",
+              candidateEmail: candidate ? candidate.email : "",
+              action: data.action,
+              status: data.status,
+              reason: data.reason || "",
+              createdAt: data.createdAt,
+            };
+          }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          setApplicants(list);
+        } catch (e) {
+          setError(`Could not load applicants: ${e.message || "unknown error"}`);
+        }
+      })();
+    }
+  }, [activeTab, jobs, candidates, user, db]);
 
   const grouped = useMemo(() => {
     return jobs.map((job) => {
@@ -136,6 +203,28 @@ export default function CandidateReviewQueue({ onBack }) {
       });
       setActionShowing(null);
       setDeclineReason("");
+      if (activeTab === "applicants") {
+        const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
+        const snap = await getDocs(q);
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          const job = jobs.find((j) => j.id === data.jobId);
+          const candidate = candidates.find((c) => c.id === data.candidateId);
+          return {
+            id: data.id,
+            jobId: data.jobId,
+            jobTitle: job ? job.title : "Unknown role",
+            candidateId: data.candidateId,
+            candidateName: candidate ? candidate.displayName : "Candidate",
+            candidateEmail: candidate ? candidate.email : "",
+            action: data.action,
+            status: data.status,
+            reason: data.reason || "",
+            createdAt: data.createdAt,
+          };
+        }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setApplicants(list);
+      }
     } catch (err) {
       setError(err.message || "Could not record review action.");
     } finally {
@@ -175,77 +264,158 @@ export default function CandidateReviewQueue({ onBack }) {
     );
   }
 
-  if (grouped.length === 0) {
-    return (
-      <div className="recruiter-page">
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to dashboard</button>
-        <div className="recruiter-card">
-          <div className="empty-state">
-            <div className="empty-icon"><Check size={25} /></div>
-            <h2>No candidates to review</h2>
-            <p>No open jobs with matching candidates found.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="recruiter-page">
       <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to dashboard</button>
       <div className="page-heading">
         <div>
           <div className="eyebrow">CANDIDATE REVIEW QUEUE</div>
-          <h1>Review candidates by role</h1>
-          <p>Candidates grouped by your open roles with skill match scores.</p>
+          <h1>Review candidates</h1>
+          <p>Track applicants and review by role with skill match scores.</p>
         </div>
       </div>
 
-      {grouped.map(({ job, candidates: jobCandidates }) => (
-        <section key={job.id} className="recruiter-card" style={{ marginBottom: 24 }}>
-          <div className="page-heading" style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #1b2535" }}>
-            <div>
-              <div className="eyebrow">{job.company}</div>
-              <h2 style={{ margin: 0, fontSize: 18 }}>{job.title}</h2>
-              <div className="company-location"><MapPin size={13} /> {job.location || "Location not specified"}</div>
+      <div className="recruiter-tabs">
+        <button
+          key="applicants"
+          className={`recruiter-tab ${activeTab === "applicants" ? "recruiter-tab-active" : ""}`}
+          onClick={() => setActiveTab("applicants")}
+        >
+          <Users size={16} /> Applicants <span className="nav-count">{applicants.length}</span>
+        </button>
+        <button
+          key="review"
+          className={`recruiter-tab ${activeTab === "review" ? "recruiter-tab-active" : ""}`}
+          onClick={() => setActiveTab("review")}
+        >
+          <Check size={16} /> Review Candidates <span className="nav-count">{grouped.reduce((sum, g) => sum + g.candidates.length, 0)}</span>
+        </button>
+      </div>
+
+      {/* Applicants - flat list */}
+      {activeTab === "applicants" && (
+        <div className="recruiter-card">
+          {applicants.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><Users size={25} /></div>
+              <h2>No applicants yet</h2>
+              <p>Candidates who apply to your posted roles will appear here.</p>
             </div>
-            <span className="nav-count">{jobCandidates.length} candidates</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {jobCandidates.map((candidate) => (
-              <article key={candidate.id} className="review-candidate-card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div className="company-avatar">{candidate.displayName.slice(0, 1).toUpperCase()}</div>
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Email</th>
+                    <th>Role Applied</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {applicants.map((app) => (
+                    <tr key={app.id}>
+                      <td>
+                        <div className="admin-user-cell">
+                          <div className="avatar admin-avatar">{app.candidateName.charAt(0).toUpperCase()}</div>
+                          <div>{app.candidateName}</div>
+                        </div>
+                      </td>
+                      <td>{app.candidateEmail || "—"}</td>
+                      <td>{app.jobTitle}</td>
+                      <td><span className={`role-badge role-${(app.status || "submitted").toLowerCase()}`}>{(app.status || "Submitted").charAt(0).toUpperCase() + (app.status || "submitted").slice(1)}</span></td>
+                      <td>
+                        {app.status === "DECLINED" && (
+                          <button className="button button-secondary" onClick={() => setActionShowing(ACTION_DECLINE)} disabled={busy}>
+                            Decline Reason
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Review Candidates - grouped by job with match scores */}
+      {activeTab === "review" && (
+        <div className="recruiter-card">
+          {grouped.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><Check size={25} /></div>
+              <h2>No candidates to review</h2>
+              <p>No open jobs with matching candidates found.</p>
+            </div>
+          ) : (
+            <>
+              {grouped.map(({ job, candidates: jobCandidates }) => (
+                <section key={job.id} className="review-job-card">
+                  <div className="review-job-header">
                     <div>
-                      <div style={{ fontWeight: 700, color: "#d8e1f0" }}>{candidate.displayName || "Candidate"}</div>
-                      <div style={{ fontSize: 12, color: "#8592a7" }}>{candidate.targetTitle || "Untitled profile"}</div>
+                      <div className="eyebrow">{job.company}</div>
+                      <h3 style={{ margin: 0 }}>{job.title}</h3>
                     </div>
+                    <span className="nav-count">{jobCandidates.length}</span>
                   </div>
-                  {matchBadge(candidate.matchScore)}
-                </div>
-                <div style={{ marginBottom: 10, fontSize: 12, color: "#8592a7" }}>
-                  <MapPin size={13} /> {candidate.expectedLocation || "Location not specified"}
-                </div>
-                <div className="skill-list" style={{ marginBottom: 14 }}>
-                  {(candidate.topSkills || []).slice(0, 6).map((s) => <span key={s} className="skill-tag">{s}</span>)}
-                </div>
-                <div className="review-actions" style={{ justifyContent: "flex-start" }}>
-                  <button className="button button-secondary" onClick={() => setActionShowing(ACTION_DECLINE)} disabled={busy}>
-                    Decline with Reason
-                  </button>
-                  <button className="button button-primary" onClick={() => recordAction(job.id, candidate.id, ACTION_SHORTLIST)} disabled={busy}>
-                    <Check size={16} /> Shortlist
-                  </button>
-                  <button className="button button-secondary" onClick={() => recordAction(job.id, candidate.id, ACTION_SAVE)} disabled={busy}>
-                    <Star size={16} /> Save to Talent Pool
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
+                  <div className="skill-list" style={{ marginBottom: 12 }}>
+                    {job.coreSkills.slice(0, 6).map((s) => <span key={s} className="skill-tag">{s}</span>)}
+                  </div>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Candidate</th>
+                          <th>Email</th>
+                          <th>Match Score</th>
+                          <th>Candidate Skills</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobCandidates.map((candidate) => {
+                          const existing = applicants.find((a) => a.candidateId === candidate.id && a.jobId === job.id);
+                          return (
+                            <tr key={candidate.id}>
+                              <td>
+                                <div className="admin-user-cell">
+                                  <div className="avatar admin-avatar">{candidate.displayName.charAt(0).toUpperCase()}</div>
+                                  <div>{candidate.displayName}</div>
+                                </div>
+                              </td>
+                              <td>{candidate.email || "—"}</td>
+                              <td>{matchBadge(candidate.matchScore)}</td>
+                              <td>
+                                <div className="skill-list" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {candidate.topSkills.slice(0, 4).map((s) => <span key={s} className="skill-tag" style={{ fontSize: 11, padding: "2px 8px" }}>{s}</span>)}
+                                </div>
+                              </td>
+                              <td>
+                                {existing ? (
+                                  <button className="button button-secondary" disabled>
+                                    {existing.status}
+                                  </button>
+                                ) : (
+                                  <button className="button button-primary" onClick={() => recordAction(job.id, candidate.id, ACTION_SHORTLIST)} disabled={busy}>
+                                    <Check size={14} /> Shortlist
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ))}
+            </>
+          )}
+        </div>
+      )}
 
       {actionShowing === ACTION_DECLINE && (
         <div className="modal-backdrop" onClick={() => setActionShowing(null)}>
