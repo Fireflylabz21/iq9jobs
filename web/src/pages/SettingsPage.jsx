@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Info, LockKeyhole, LogOut, UserRound } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
-import { db, auth, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "../backend.js";
+import { db, auth } from "../backend.js";
+import { sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 
 export default function SettingsPage({ user, profile, busy, onSave }) {
   const [editing, setEditing] = useState(false);
