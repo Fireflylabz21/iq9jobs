@@ -93,4 +93,6 @@ export const useRole = () => {
   return ctx;
 };
 
+export { RoleContext };
+
 export default RoleContext;
