@@ -619,84 +619,83 @@ export default function RouterApp() {
     }
   }, [role, defaultScreen]);
 
-  // Onboarding gate for seekers only
-  if (role === ROLES.SEEKER && !onboardingComplete) {
-    return (
-      <OnboardingPage
-        user={user}
-        busy={busy}
-        error={error}
-        onSubmit={async (details) => {
-          setBusy(true);
-          setError("");
-          try {
-            if (!supabase) {
-              throw new Error("Supabase is not configured. Add its web settings to .env.local.");
-            }
-            const skills = details.primarySkillsets
-              .split(",")
-              .map((skill) => skill.trim())
-              .filter(Boolean);
-            if (skills.length > 6) {
-              throw new Error("Enter no more than 6 skills.");
-            }
-            const agentDetails = {
-              ...details,
-              email: user.email || "",
-              yearsExperience: Number(details.yearsExperience),
-            };
-            const { error: subscriberError } = await supabase
-              .from("subscribers")
-              .insert({
-                full_name: agentDetails.fullName,
-                email: agentDetails.email,
-                phone_number: agentDetails.phoneNumber,
-                primary_skillsets: agentDetails.primarySkillsets,
-                secondary_skillsets: "",
-                years_experience: agentDetails.yearsExperience,
-                current_company: agentDetails.currentCompany,
-                current_ctc: "Not provided",
-                notice_period: agentDetails.noticePeriod,
-                current_location: agentDetails.currentLocation,
-                expected_location: agentDetails.expectedLocation,
-                status: "Active",
-              });
-            if (subscriberError) throw subscriberError;
-            const seekerProfile = {
-              ...emptyProfile,
-              targetTitle: agentDetails.targetRole,
-              noticePeriod: noticeOptions.some(([value]) => value === agentDetails.noticePeriod)
-                ? agentDetails.noticePeriod
-                : "IMMEDIATE",
-              topSkills: skills.slice(0, 6),
-              expectedLocation: agentDetails.expectedLocation,
-            };
-            await setDoc(
-              doc(db, "users", user.uid),
-              {
-                uid: user.uid,
-                email: user.email || "",
-                agentDetails,
-                seekerProfile,
-                onboardingCompleted: true,
-              },
-              { merge: true },
-            );
-            setProfile(seekerProfile);
-            setOnboardingComplete(true);
-            setNotice("Profile created. Welcome to iq9 Jobs.");
-          } catch (submitError) {
-            setError(submitError.message || "Could not save your profile.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    );
-  }
-
   // Role-based content rendering — each role only sees its own modules
   const roleContent = useMemo(() => {
+    // Onboarding gate for seekers only
+    if (role === ROLES.SEEKER && !onboardingComplete) {
+      return (
+        <OnboardingPage
+          user={user}
+          busy={busy}
+          error={error}
+          onSubmit={async (details) => {
+            setBusy(true);
+            setError("");
+            try {
+              if (!supabase) {
+                throw new Error("Supabase is not configured. Add its web settings to .env.local.");
+              }
+              const skills = details.primarySkillsets
+                .split(",")
+                .map((skill) => skill.trim())
+                .filter(Boolean);
+              if (skills.length > 6) {
+                throw new Error("Enter no more than 6 skills.");
+              }
+              const agentDetails = {
+                ...details,
+                email: user.email || "",
+                yearsExperience: Number(details.yearsExperience),
+              };
+              const { error: subscriberError } = await supabase
+                .from("subscribers")
+                .insert({
+                  full_name: agentDetails.fullName,
+                  email: agentDetails.email,
+                  phone_number: agentDetails.phoneNumber,
+                  primary_skillsets: agentDetails.primarySkillsets,
+                  secondary_skillsets: "",
+                  years_experience: agentDetails.yearsExperience,
+                  current_company: agentDetails.currentCompany,
+                  current_ctc: "Not provided",
+                  notice_period: agentDetails.noticePeriod,
+                  current_location: agentDetails.currentLocation,
+                  expected_location: agentDetails.expectedLocation,
+                  status: "Active",
+                });
+              if (subscriberError) throw subscriberError;
+              const seekerProfile = {
+                ...emptyProfile,
+                targetTitle: agentDetails.targetRole,
+                noticePeriod: noticeOptions.some(([value]) => value === agentDetails.noticePeriod)
+                  ? agentDetails.noticePeriod
+                  : "IMMEDIATE",
+                topSkills: skills.slice(0, 6),
+                expectedLocation: agentDetails.expectedLocation,
+              };
+              await setDoc(
+                doc(db, "users", user.uid),
+                {
+                  uid: user.uid,
+                  email: user.email || "",
+                  agentDetails,
+                  seekerProfile,
+                  onboardingCompleted: true,
+                },
+                { merge: true },
+              );
+              setProfile(seekerProfile);
+              setOnboardingComplete(true);
+              setNotice("Profile created. Welcome to iq9 Jobs.");
+            } catch (submitError) {
+              setError(submitError.message || "Could not save your profile.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      );
+    }
     if (role === ROLES.ADMIN) {
       if (screen === "admin") {
         return <AdminPanel user={user} onSignOut={handleSignOut} busy={busy} />;
@@ -756,7 +755,7 @@ export default function RouterApp() {
         onDetails={setSelectedJob}
       />
     );
-  }, [role, screen, user, profile, busy, jobs, visibleJobs, loadingJobs, query, savedIds, appliedIds, skippedIds, selectedJob]);
+  }, [role, screen, user, profile, busy, onboardingComplete, jobs, visibleJobs, loadingJobs, query, savedIds, appliedIds, skippedIds, selectedJob]);
 
   return (
     <div className="app-shell">
