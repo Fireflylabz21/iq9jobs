@@ -128,4 +128,4 @@ export default function RecruiterDashboard({ onSignOut, busy }) {
       )}
     </div>
   );
-);
+}

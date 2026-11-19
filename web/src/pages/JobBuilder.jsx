@@ -301,4 +301,4 @@ export default function JobBuilder({ onBack, onJobCreated }) {
       </div>
     </div>
   );
-);
+}

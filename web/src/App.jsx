@@ -50,6 +50,13 @@ import {
   supabaseConfigured,
 } from "./backend.js";
 import { RoleProvider, useRole, ROLES } from "./context/RoleContext.jsx";
+import OnboardingPage from "./pages/OnboardingPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
+import RecruiterDashboard from "./pages/RecruiterDashboard.jsx";
+import AdminPanel from "./pages/AdminPanel.jsx";
+import JobBuilder from "./pages/JobBuilder.jsx";
+import CandidateReviewQueue from "./pages/CandidateReviewQueue.jsx";
+import ChatPage from "./pages/ChatPage.jsx";
 
 const emptyProfile = {
   targetTitle: "",

@@ -4,10 +4,14 @@ import { RoleProvider } from "./context/RoleContext.jsx";
 import App from "./App.jsx";
 import "./styles.css";
 
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
+
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <RoleProvider>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </RoleProvider>
   </React.StrictMode>,
 );

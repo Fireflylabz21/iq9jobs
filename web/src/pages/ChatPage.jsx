@@ -161,4 +161,4 @@ export default function ChatPage({ user, otherUserId, jobTitle, onBack }) {
       )}
     </div>
   );
-);
+}

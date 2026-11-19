@@ -108,7 +108,7 @@ export default function AdminPanel({ user, onSignOut, busy }) {
                         onClick={() => setEditingId(editingId === u.id ? null : u.id)}
                         disabled={busy}
                       >
-                        {editingId === u.id ? "Save" : <Edit size={14} /> Change role}
+                         {editingId === u.id ? "Save" : (<> <Edit size={14} /> Change role</>)}
                       </button>
                       {u.id === user.uid && <span className="muted-copy" style={{ fontSize: 11, color: "#66748c" }}>You</span>}
                     </td>
@@ -121,4 +121,4 @@ export default function AdminPanel({ user, onSignOut, busy }) {
       </div>
     </div>
   );
-);
+}

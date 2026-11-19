@@ -109,4 +109,4 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
       </div>
     </div>
   );
-);
+}

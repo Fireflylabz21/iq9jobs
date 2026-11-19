@@ -164,4 +164,4 @@ function AboutPage({ onBack }) {
       <div className="about-note">iq9 Jobs · Find your next move.</div>
     </div>
   );
-);
+}
