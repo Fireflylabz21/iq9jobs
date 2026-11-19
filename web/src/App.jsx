@@ -33,12 +33,14 @@ import {
   LogOut,
   MapPin,
   Menu,
+  MessageCircle,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
   Star,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -694,56 +696,118 @@ export default function RouterApp() {
           <Brand />
           <div className="sidebar-label">WORKSPACE</div>
           <nav className="side-nav" aria-label="Main navigation">
-            <NavButton
-              active={screen === "jobs"}
-              icon={<BriefcaseBusiness size={18} />}
-              onClick={() => {
-                setScreen("jobs");
-                setMobileMenuOpen(false);
-              }}
-            >
-              Discover roles
-            </NavButton>
-            <NavButton
-              active={screen === "saved"}
-              icon={<Star size={18} />}
-              onClick={() => {
-                setScreen("saved");
-                setMobileMenuOpen(false);
-              }}
-            >
-              Saved jobs <span className="nav-count">{savedIds.length}</span>
-            </NavButton>
-            <NavButton
-              active={screen === "applied"}
-              icon={<Check size={18} />}
-              onClick={() => {
-                setScreen("applied");
-                setMobileMenuOpen(false);
-              }}
-            >
-              Applied <span className="nav-count">{appliedIds.length}</span>
-            </NavButton>
-            <NavButton
-              active={screen === "kanban"}
-              icon={<Check size={18} />}
-              onClick={() => {
-                setScreen("kanban");
-                setMobileMenuOpen(false);
-              }}
-            >
-              Kanban <span className="nav-count">{appliedIds.length}</span>
-            </NavButton>
-            <NavButton
-              active={screen === "settings" || screen === "about"}
-              icon={<Settings size={18} />}
-              onClick={() => {
-                setScreen("settings");
-                setMobileMenuOpen(false);
-              }}
-            >
-              Settings
-            </NavButton>
+            {role === ROLES.ADMIN && (
+              <>
+                <NavButton
+                  active={screen === "admin"}
+                  icon={<Users size={18} />}
+                  onClick={() => {
+                    setScreen("admin");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  User Management
+                </NavButton>
+                <NavButton
+                  active={screen === "settings" || screen === "about"}
+                  icon={<Settings size={18} />}
+                  onClick={() => {
+                    setScreen("settings");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Settings
+                </NavButton>
+              </>
+            )}
+            {role === ROLES.RECRUITER && (
+              <>
+                <NavButton
+                  active={screen === "jobs"}
+                  icon={<BriefcaseBusiness size={18} />}
+                  onClick={() => {
+                    setScreen("jobs");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  My Roles
+                </NavButton>
+                <NavButton
+                  active={screen === "review"}
+                  icon={<Users size={18} />}
+                  onClick={() => {
+                    setScreen("review");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Review Candidates
+                </NavButton>
+                <NavButton
+                  active={screen === "messages"}
+                  icon={<MessageCircle size={18} />}
+                  onClick={() => {
+                    setScreen("messages");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Messages
+                </NavButton>
+              </>
+            )}
+            {role === ROLES.SEEKER && (
+              <>
+                <NavButton
+                  active={screen === "jobs"}
+                  icon={<BriefcaseBusiness size={18} />}
+                  onClick={() => {
+                    setScreen("jobs");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Discover roles
+                </NavButton>
+                <NavButton
+                  active={screen === "saved"}
+                  icon={<Star size={18} />}
+                  onClick={() => {
+                    setScreen("saved");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Saved jobs <span className="nav-count">{savedIds.length}</span>
+                </NavButton>
+                <NavButton
+                  active={screen === "applied"}
+                  icon={<Check size={18} />}
+                  onClick={() => {
+                    setScreen("applied");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Applied <span className="nav-count">{appliedIds.length}</span>
+                </NavButton>
+                <NavButton
+                  active={screen === "kanban"}
+                  icon={<Check size={18} />}
+                  onClick={() => {
+                    setScreen("kanban");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Kanban <span className="nav-count">{appliedIds.length}</span>
+                </NavButton>
+                <NavButton
+                  active={screen === "settings" || screen === "about"}
+                  icon={<Settings size={18} />}
+                  onClick={() => {
+                    setScreen("settings");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Settings
+                </NavButton>
+              </>
+            )}
           </nav>
           <div className="sidebar-bottom">
             <div className="profile-chip">
