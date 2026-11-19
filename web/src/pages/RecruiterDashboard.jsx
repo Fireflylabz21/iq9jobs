@@ -7,30 +7,34 @@ import JobBuilder from "./JobBuilder.jsx";
 import CandidateReviewQueue from "./CandidateReviewQueue.jsx";
 import ChatPage from "./ChatPage.jsx";
 
-export default function RecruiterDashboard({ onSignOut, busy }) {
-  const { user } = useRole();
+export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }) {
+  const { user: currentUser } = useRole();
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState(initialTab || "jobs");
   const [chatOpen, setChatOpen] = useState(null);
   const [chatJobTitle, setChatJobTitle] = useState("");
   const [applicantLoading, setApplicantLoading] = useState(false);
 
   useEffect(() => {
-    if (!user || !db) return;
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (!currentUser || !db) return;
     setLoading(true);
-    const q = query(collection(db, "jobs"), where("recruiterId", "==", user.uid));
+    const q = query(collection(db, "jobs"), where("recruiterId", "==", currentUser.uid));
     getDocs(q).then((snap) => {
       setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [user, db]);
+  }, [currentUser, db]);
 
   // Load applicants for recruiter's jobs from Supabase applications table
   useEffect(() => {
-    if (!user || !supabase || jobs.length === 0) {
+    if (!currentUser || !supabase || jobs.length === 0) {
       setApplicants([]);
       return;
     }
@@ -59,7 +63,7 @@ export default function RecruiterDashboard({ onSignOut, busy }) {
         setApplicants([]);
         setApplicantLoading(false);
       });
-  }, [user, supabase, jobs]);
+  }, [currentUser, supabase, jobs]);
 
   const tabs = [
     { key: "jobs", label: "My Roles", icon: <BriefcaseBusiness size={16} />, count: jobs.length },
@@ -204,7 +208,7 @@ export default function RecruiterDashboard({ onSignOut, busy }) {
           <button className="back-link" onClick={() => setActiveTab("applicants")}><ArrowLeft size={16} /> Back to applicants</button>
           {chatOpen && (
             <ChatPage
-              user={user}
+              user={currentUser}
               otherUserId={chatOpen}
               jobTitle={chatJobTitle}
               onBack={() => setChatOpen(null)}

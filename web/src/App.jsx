@@ -605,17 +605,22 @@ export default function RouterApp() {
     }
   };
 
-  // Role-based routing
-  if (role === ROLES.ADMIN) {
-    return <AdminPanel user={user} onSignOut={handleSignOut} busy={busy} />;
-  }
+  // Role-based routing — set default screen per role, then shared shell renders
+  const defaultScreen = useMemo(() => {
+    if (role === ROLES.ADMIN) return "admin";
+    if (role === ROLES.RECRUITER) return "jobs";
+    return "jobs";
+  }, [role]);
 
-  if (role === ROLES.RECRUITER) {
-    return <RecruiterDashboard user={user} onSignOut={handleSignOut} busy={busy} />;
-  }
+  // Initialize screen to default on role change
+  useEffect(() => {
+    if (screen === "jobs" || screen === "admin") {
+      setScreen(defaultScreen);
+    }
+  }, [role, defaultScreen]);
 
-  // Seeker path
-  if (!onboardingComplete) {
+  // Onboarding gate for seekers only
+  if (role === ROLES.SEEKER && !onboardingComplete) {
     return (
       <OnboardingPage
         user={user}
@@ -689,6 +694,69 @@ export default function RouterApp() {
       />
     );
   }
+
+  // Role-based content rendering — each role only sees its own modules
+  const roleContent = useMemo(() => {
+    if (role === ROLES.ADMIN) {
+      if (screen === "admin") {
+        return <AdminPanel user={user} onSignOut={handleSignOut} busy={busy} />;
+      }
+      return <SettingsPage user={user} profile={profile} busy={busy} onSave={async (nextProfile) => {
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+          await setDoc(doc(db, "users", user.uid), { seekerProfile: nextProfile }, { merge: true });
+          setProfile(nextProfile);
+          setNotice("Profile updated.");
+        } catch (saveError) {
+          setError(saveError.message || "Could not update your profile.");
+        } finally {
+          setBusy(false);
+        }
+      }} />;
+    }
+
+    if (role === ROLES.RECRUITER) {
+      return <RecruiterDashboard user={user} onSignOut={handleSignOut} busy={busy} initialTab={screen} />;
+    }
+
+    // Seeker path
+    if (screen === "settings") {
+      return <SettingsPage user={user} profile={profile} busy={busy} onSave={async (nextProfile) => {
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+          await setDoc(doc(db, "users", user.uid), { seekerProfile: nextProfile }, { merge: true });
+          setProfile(nextProfile);
+          setNotice("Profile updated.");
+        } catch (saveError) {
+          setError(saveError.message || "Could not update your profile.");
+        } finally {
+          setBusy(false);
+        }
+      }} />;
+    }
+    if (screen === "about") return <AboutScreen />;
+    if (screen === "kanban") return <ApplicationKanban appliedIds={appliedIds} jobs={jobs} />;
+    return (
+      <SeekerFeed
+        screen={screen}
+        jobs={visibleJobs}
+        allJobs={jobs}
+        loading={loadingJobs}
+        query={query}
+        onQueryChange={setQuery}
+        savedIds={savedIds}
+        appliedIds={appliedIds}
+        onSave={toggleSaved}
+        onSkip={skipJob}
+        onApply={recordApplication}
+        onDetails={setSelectedJob}
+      />
+    );
+  }, [role, screen, user, profile, busy, jobs, visibleJobs, loadingJobs, query, savedIds, appliedIds, skippedIds, selectedJob]);
 
   return (
     <div className="app-shell">
@@ -848,50 +916,7 @@ export default function RouterApp() {
                 Add Supabase web settings to <code>web/.env.local</code> to load and update roles.
               </Alert>
             )}
-            {screen === "settings" ? (
-              <SettingsPage
-                user={user}
-                profile={profile}
-                busy={busy}
-                onSave={async (nextProfile) => {
-                  setBusy(true);
-                  setError("");
-                  setNotice("");
-                  try {
-                    await setDoc(
-                      doc(db, "users", user.uid),
-                      { seekerProfile: nextProfile },
-                      { merge: true },
-                    );
-                    setProfile(nextProfile);
-                    setNotice("Profile updated.");
-                  } catch (saveError) {
-                    setError(saveError.message || "Could not update your profile.");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              />
-            ) : screen === "about" ? (
-              <AboutScreen />
-            ) : screen === "kanban" ? (
-              <ApplicationKanban appliedIds={appliedIds} jobs={jobs} />
-            ) : (
-              <SeekerFeed
-                screen={screen}
-                jobs={visibleJobs}
-                allJobs={jobs}
-                loading={loadingJobs}
-                query={query}
-                onQueryChange={setQuery}
-                savedIds={savedIds}
-                appliedIds={appliedIds}
-                onSave={toggleSaved}
-                onSkip={skipJob}
-                onApply={recordApplication}
-                onDetails={setSelectedJob}
-              />
-            )}
+            {roleContent}
           </div>
         </main>
         {mobileMenuOpen && (
