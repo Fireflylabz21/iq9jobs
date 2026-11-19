@@ -397,3 +397,76 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Recruiter & Admin pages */
+.recruiter-page { max-width: 1000px; margin: 0 auto; padding: 26px clamp(16px, 4vw, 40px) 40px; }
+.admin-page { max-width: 1100px; margin: 0 auto; padding: 26px clamp(16px, 4vw, 40px) 40px; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.page-heading .eyebrow { color: #69bde9; font-size: 10px; font-weight: 700; letter-spacing: .13em; }
+.page-heading h1 { margin: 0 0 7px; font-family: Manrope, sans-serif; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.05em; }
+.page-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+
+.recruiter-card, .admin-card { padding: 24px; border: 1px solid #222f44; border-radius: 14px; background: linear-gradient(145deg, #111a2a, #0d1420); }
+
+.stepper { margin-bottom: 26px; }
+.stepper-progress { display: flex; justify-content: space-between; color: #7d8ca5; font-size: 9px; font-weight: 700; letter-spacing: .1em; margin-bottom: 11px; }
+.step-track { height: 4px; border-radius: 4px; background: #263247; overflow: hidden; }
+.step-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2598e9, #7a70f5); transition: width .25s ease; }
+
+.step-form { display: flex; flex-direction: column; gap: 16px; }
+.settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.skills-inputs { display: flex; flex-direction: column; gap: 10px; }
+.field-hint { color: #708099; font-size: 11px; margin-top: 6px; }
+.error-hint { color: #fb7185; font-size: 11px; font-weight: 600; margin-top: 6px; }
+.step-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+.role-select { width: 100%; min-height: 36px; padding: 0 10px; border: 1px solid #29364a; border-radius: 8px; background: #0a101b; color: var(--text); }
+
+/* Recruiter tabs */
+.recruiter-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #1b2535; padding-bottom: 10px; }
+.recruiter-tab { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border: 0; border-radius: 8px; background: transparent; color: #8592a7; cursor: pointer; font-size: 12px; font-weight: 600; border-bottom: 2px solid transparent; }
+.recruiter-tab:hover { background: #121a29; color: #d8e1f0; }
+.recruiter-tab-active { color: #7bcfff; border-bottom-color: #7bcfff; background: #101b2a; }
+
+/* Review card */
+.review-card { padding: 30px; text-align: center; }
+.review-candidate-card { padding: 26px; border: 1px dashed #2b3952; }
+.review-actions { display: flex; gap: 10px; justify-content: center; margin-top: 22px; }
+.review-actions .button { min-width: 140px; }
+
+/* Kanban */
+.kanban-column { display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+.kanban-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.kanban-header h3 { margin: 0; font-size: 13px; font-weight: 700; color: #e4e9f2; }
+.kanban-count { padding: 2px 8px; border-radius: 10px; background: #1d2b40; color: #9eacc2; font-size: 11px; }
+.kanban-cards { display: flex; flex-direction: column; gap: 10px; }
+.kanban-card { padding: 14px; border: 1px solid #202d42; border-radius: 10px; background: #111a2b; }
+.kanban-card h3 { margin: 8px 0 6px; font-size: 15px; }
+
+/* Admin table */
+.admin-toolbar { margin-bottom: 16px; }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th { text-align: left; padding: 12px 10px; color: #8d9ab0; font-weight: 700; border-bottom: 1px solid #253147; }
+.admin-table td { padding: 12px 10px; border-bottom: 1px solid #1f2a3d; color: #c5cede; }
+.admin-table tr:hover td { background: #141f31; }
+.admin-user-cell { display: flex; align-items: center; gap: 10px; }
+.admin-avatar { width: 30px; height: 30px; border-radius: 8px; background: #263960; color: #c5bcff; font-size: 11px; font-weight: 700; display: grid; place-items: center; flex: 0 0 auto; }
+.role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.role-seeker { background: #102a2a; color: #69d7bd; border: 1px solid #25504c; }
+.role-recruiter { background: #1b2b4a; color: #7bcfff; border: 1px solid #295d8c; }
+.role-admin { background: #3b1b3b; color: #fb7185; border: 1px solid #783b4a; }
+
+.back-link { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; padding: 0; border: 0; background: none; color: #8da0ba; cursor: pointer; font-size: 11px; font-weight: 600; }
+.back-link:hover { color: var(--blue); }
+
+.muted-copy { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+/* In-app application browser */
+.in-app-browser { position: fixed; z-index: 40; inset: 0; display: flex; flex-direction: column; background: #02050bcc; backdrop-filter: blur(5px); animation: fade-in .16s ease both; }
+.in-app-browser-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #2b3952; background: #0b1220; }
+.in-app-browser-url { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #8290a7; font-size: 11px; margin-right: 10px; }
+.in-app-browser-close { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #2b3952; background: #121b2c; color: #c5cede; cursor: pointer; display: grid; place-items: center; }
+.in-app-browser-close:hover { background: #1b2638; color: white; }
+.in-app-browser-frame { flex: 1; width: 100%; border: 0; background: white; }
+

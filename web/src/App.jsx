@@ -6,7 +6,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut,
+  signOut as fbSignOut,
   updatePassword,
   EmailAuthProvider,
 } from "firebase/auth";
@@ -49,6 +49,7 @@ import {
   supabase,
   supabaseConfigured,
 } from "./backend.js";
+import { RoleProvider, useRole, ROLES } from "./context/RoleContext.jsx";
 
 const emptyProfile = {
   targetTitle: "",
@@ -72,6 +73,13 @@ function readList(key) {
   } catch {
     return [];
   }
+}
+
+function saveList(name, value, user) {
+  const next = [...new Set(value)];
+  const key = `iq9:${user.uid}:${name}`;
+  localStorage.setItem(key, JSON.stringify(next));
+  return next;
 }
 
 function moneyRange(job) {
@@ -140,45 +148,290 @@ function titleMatches(jobTitle, targetTitle) {
   return jobTitle.toLowerCase().includes(targetTitle.toLowerCase());
 }
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+function screenTitle(screen) {
+  if (screen === "saved") return "Saved jobs";
+  if (screen === "applied") return "Applied jobs";
+  if (screen === "settings") return "Settings";
+  if (screen === "about") return "About us";
+  if (screen === "kanban") return "Application Kanban";
+  return "Discover roles";
+}
+
+function noticeLabel(value) {
+  return noticeOptions.find(([key]) => key === value)?.[1] || value;
+}
+
+// Shared UI primitives
+function LoadingScreen({ label }) {
+  return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function Brand() {
+  return (
+    <a className="brand" href="#" aria-label="iq9 Jobs home">
+      <span className="brand-mark">iq<span>9</span></span>
+      <span className="brand-name">jobs<span>.</span></span>
+    </a>
+  );
+}
+
+function Alert({ type, children }) {
+  const classes = type === "error" ? "alert alert-error" : type === "success" ? "alert alert-success" : "alert alert-warning";
+  const role = type === "error" ? "alert" : type === "success" ? "status" : "alert";
+  return <div className={classes} role={role}>{children}</div>;
+}
+
+function Button({ children, className = "", onClick, disabled, type = "button", ...props }) {
+  return (
+    <button className={`button ${className}`} onClick={onClick} disabled={disabled} type={type} {...props}>
+      {children}
+    </button>
+  );
+}
+
+function AuthScreen({ configured }) {
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const { signOut, setUserRole, role, user } = useRole();
+
+  const finishAuth = async (credential) => {
+    const currentUser = credential.user;
+    const snapshot = await getDoc(doc(db, "users", currentUser.uid));
+    const data = snapshot.exists() ? snapshot.data() : {};
+    await setDoc(
+      doc(db, "users", currentUser.uid),
+      {
+        uid: currentUser.uid,
+        email: currentUser.email || "",
+        provider:
+          currentUser.providerData.find((item) => item.providerId !== "firebase")
+            ?.providerId || "password",
+        lastSignInAt: serverTimestamp(),
+        ...(!snapshot.exists()
+          ? {
+              createdAt: serverTimestamp(),
+              displayName: currentUser.displayName || "",
+            }
+          : {}),
+      },
+      { merge: true },
+    );
+    setError("");
+  };
+
+  const handleSubmit = async (mode, email, password) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result =
+        mode === "create"
+          ? await createUserWithEmailAndPassword(auth, email, password)
+          : await signInWithEmailAndPassword(auth, email, password);
+      await finishAuth(result);
+    } catch (authError) {
+      setError(authError.message || "Could not authenticate.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await finishAuth(await signInWithPopup(auth, googleProvider));
+    } catch (authError) {
+      setError(authError.message || "Google sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = async (email) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setNotice("Password reset email sent.");
+    } catch (authError) {
+      setError(authError.message || "Could not send a reset email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onClear = () => { setError(""); setNotice(""); };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-decoration auth-decoration-one" />
+      <div className="auth-decoration auth-decoration-two" />
+      <div className="auth-layout">
+        <section className="auth-story">
+          <Brand />
+          <div className="story-content">
+            <div className="eyebrow"><Sparkles size={15} /> YOUR NEXT MOVE, MADE CLEAR</div>
+            <h1>Better work.<br /><span>Less noise.</span></h1>
+            <p>Discover opportunities built around the things that matter: meaningful work, clear expectations, and a team that fits.</p>
+            <div className="story-proof">
+              <div className="proof-icon"><ShieldCheck size={19} /></div>
+              <div><strong>Signal over scroll</strong><span>Clear roles. Real details. Your next step.</span></div>
+            </div>
+          </div>
+          <div className="story-footer">A more human way to find your next role.</div>
+        </section>
+        <section className="auth-form-wrap">
+          <div className="auth-card">
+            <div className="auth-card-heading">
+              <span className="auth-badge"><UserRound size={17} /></span>
+              <div className="eyebrow">CANDIDATE ACCESS</div>
+              <h2>{mode === "create" ? "Create your account" : "Welcome back"}</h2>
+              <p>{mode === "create" ? "Start building a more focused job search." : "Sign in to pick up where you left off."}</p>
+            </div>
+            {!configured && (
+              <Alert type="warning">Firebase isn't configured. Copy <code>.env.example</code> to <code>.env.local</code> and add your web app settings.</Alert>
+            )}
+            {error && <Alert type="error">{error}</Alert>}
+            {notice && <Alert type="success">{notice}</Alert>}
+            <form
+              className="form-stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onClear();
+                handleSubmit(mode, email.trim(), password);
+              }}
+            >
+              <label className="field-label" htmlFor="auth-email">Email address</label>
+              <div className="input-wrap">
+                <UserRound size={17} />
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="field-label-row">
+                <label className="field-label" htmlFor="auth-password">Password</label>
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy || !email.trim()}
+                    onClick={() => handleReset(email.trim())}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div className="input-wrap">
+                <LockKeyhole size={17} />
+                <input
+                  id="auth-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={mode === "create" ? "new-password" : "current-password"}
+                  placeholder="At least 6 characters"
+                  minLength={6}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <button
+                  className="input-trailing"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+              <button className="button button-primary button-full" disabled={busy || !configured}>
+                {busy ? "Please wait…" : mode === "create" ? "Create account" : "Sign in"}
+                {!busy && <ArrowRight size={17} />}
+              </button>
+            </form>
+            <div className="divider"><span>OR</span></div>
+            <button
+              className="button button-google button-full"
+              disabled={busy || !configured}
+              onClick={handleGoogle}
+            >
+              <span className="google-mark" aria-hidden="true">G</span> Continue with Google
+            </button>
+            <p className="auth-switch">
+              {mode === "create" ? "Already have an account?" : "New to iq9?"}{" "}
+              <button
+                className="text-button"
+                onClick={() => {
+                  setMode(mode === "create" ? "signin" : "create");
+                  onClear();
+                }}
+              >
+                {mode === "create" ? "Sign in" : "Create account"}
+              </button>
+            </p>
+            <div className="auth-privacy"><ShieldCheck size={14} /> Your profile stays yours. Always.</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export default function RouterApp() {
+  const { user, role, ready, isRecruiter, isAdmin, signOut } = useRole();
+
+  if (!ready) {
+    return <LoadingScreen label="Connecting to iq9 Jobs" />;
+  }
+
+  if (!user) {
+    return <AuthScreen configured={firebaseConfigured} />;
+  }
+
+  const uid = user.uid;
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  const [screen, setScreen] = useState("jobs");
-  const [jobs, setJobs] = useState([]);
   const [profile, setProfile] = useState(emptyProfile);
   const [savedIds, setSavedIds] = useState([]);
   const [skippedIds, setSkippedIds] = useState([]);
   const [appliedIds, setAppliedIds] = useState([]);
-const [loadingJobs, setLoadingJobs] = useState(false);
-const [matchSource, setMatchSource] = useState("none");
-const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [selectedJob, setSelectedJob] = useState(null);
-const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
+  const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
   const [query, setQuery] = useState("");
+  const [screen, setScreen] = useState("jobs");
+  const [jobs, setJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [matchSource, setMatchSource] = useState("none");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Load seeker profile + onboarding status
   useEffect(() => {
-    if (!auth) {
-      setAuthReady(true);
-      return undefined;
+    if (!user) {
+      setProfile(emptyProfile);
+      setOnboardingComplete(false);
+      return;
     }
-
-    return onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setError("");
-      setNotice("");
-      if (!currentUser) {
-        setProfile(emptyProfile);
-        setOnboardingComplete(false);
-        setAuthReady(true);
-        return;
-      }
-
+    (async () => {
       try {
-        const snapshot = await getDoc(doc(db, "users", currentUser.uid));
+        const snapshot = await getDoc(doc(db, "users", user.uid));
         const data = snapshot.exists() ? snapshot.data() : {};
         setProfile({ ...emptyProfile, ...(data.seekerProfile || {}) });
         setOnboardingComplete(
@@ -188,11 +441,9 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
         );
       } catch (loadError) {
         setError(loadError.message || "Could not load your profile.");
-      } finally {
-        setAuthReady(true);
       }
-    });
-  }, []);
+    })();
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -208,7 +459,7 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
   }, [user]);
 
   useEffect(() => {
-    if (!user || !supabase) {
+    if (!user || !supabase || role !== ROLES.SEEKER) {
       setJobs([]);
       setMatchSource("none");
       return;
@@ -273,16 +524,7 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
     return () => {
       active = false;
     };
-  }, [user, profile.topSkills, profile.targetTitle, profile.expectedLocation]);
-
-  const saveList = (name, value) => {
-    const next = [...new Set(value)];
-    const key = `iq9:${user.uid}:${name}`;
-    localStorage.setItem(key, JSON.stringify(next));
-    if (name === "saved") setSavedIds(next);
-    if (name === "skipped") setSkippedIds(next);
-    if (name === "applied") setAppliedIds(next);
-  };
+  }, [user, profile.topSkills, profile.targetTitle, profile.expectedLocation, role]);
 
   const visibleJobs = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -300,52 +542,6 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
     });
   }, [jobs, query, screen, savedIds, skippedIds, appliedIds]);
 
-  const finishAuth = async (credential) => {
-    const currentUser = credential.user;
-    const snapshot = await getDoc(doc(db, "users", currentUser.uid));
-    const data = snapshot.exists() ? snapshot.data() : {};
-    await setDoc(
-      doc(db, "users", currentUser.uid),
-      {
-        uid: currentUser.uid,
-        email: currentUser.email || "",
-        provider:
-          currentUser.providerData.find((item) => item.providerId !== "firebase")
-            ?.providerId || "password",
-        lastSignInAt: serverTimestamp(),
-        ...(!snapshot.exists()
-          ? {
-              createdAt: serverTimestamp(),
-              displayName: currentUser.displayName || "",
-            }
-          : {}),
-      },
-      { merge: true },
-    );
-    setUser(currentUser);
-    setProfile({ ...emptyProfile, ...(data.seekerProfile || {}) });
-    setOnboardingComplete(
-      data.onboardingCompleted === true ||
-        Boolean(data.agentDetails) ||
-        Boolean(data.seekerProfile && Object.keys(data.seekerProfile || {}).length > 0),
-    );
-    setError("");
-  };
-
-  const handleSignOut = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await signOut(auth);
-      setScreen("jobs");
-      setNotice("");
-    } catch (signOutError) {
-      setError(signOutError.message || "Could not sign out.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const recordApplication = async (job) => {
     const url = safeExternalUrl(job.applyUrl);
     if (!url) {
@@ -353,8 +549,8 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
       return;
     }
     setApplyBrowserUrl(url);
-    const next = [...new Set([...appliedIds, job.id])];
-    saveList("applied", next);
+    const next = saveList("applied", [...appliedIds, job.id], user);
+    setAppliedIds(next);
     setNotice("Application opened in-app. Your activity is saved.");
     setError("");
     try {
@@ -373,7 +569,8 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
   };
 
   const skipJob = (job) => {
-    saveList("skipped", [...skippedIds, job.id]);
+    const next = saveList("skipped", [...skippedIds, job.id], user);
+    setSkippedIds(next);
     setSelectedJob(null);
   };
 
@@ -381,71 +578,37 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
     const next = savedIds.includes(job.id)
       ? savedIds.filter((id) => id !== job.id)
       : [...savedIds, job.id];
-    saveList("saved", next);
+    const savedNext = saveList("saved", next, user);
+    setSavedIds(savedNext);
   };
 
-  if (!authReady) {
-    return <LoadingScreen label="Connecting to iq9 Jobs" />;
+  const handleSignOut = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await fbSignOut(auth);
+      setScreen("jobs");
+      setNotice("");
+    } catch (signOutError) {
+      setError(signOutError.message || "Could not sign out.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Role-based routing
+  if (role === ROLES.ADMIN) {
+    return <AdminPanel user={user} onSignOut={handleSignOut} busy={busy} />;
   }
 
-  if (!user) {
-    return (
-      <AuthScreen
-        configured={firebaseConfigured}
-        busy={busy}
-        error={error}
-        notice={notice}
-        onSubmit={async (mode, email, password) => {
-          setBusy(true);
-          setError("");
-          setNotice("");
-          try {
-            const result =
-              mode === "create"
-                ? await createUserWithEmailAndPassword(auth, email, password)
-                : await signInWithEmailAndPassword(auth, email, password);
-            await finishAuth(result);
-          } catch (authError) {
-            setError(authError.message || "Could not authenticate.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-        onGoogle={async () => {
-          setBusy(true);
-          setError("");
-          try {
-            await finishAuth(await signInWithPopup(auth, googleProvider));
-          } catch (authError) {
-            setError(authError.message || "Google sign-in failed.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-        onReset={async (email) => {
-          setBusy(true);
-          setError("");
-          setNotice("");
-          try {
-            await sendPasswordResetEmail(auth, email);
-            setNotice("Password reset email sent.");
-          } catch (authError) {
-            setError(authError.message || "Could not send a reset email.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-        onClear={() => {
-          setError("");
-          setNotice("");
-        }}
-      />
-    );
+  if (role === ROLES.RECRUITER) {
+    return <RecruiterDashboard user={user} onSignOut={handleSignOut} busy={busy} />;
   }
 
+  // Seeker path
   if (!onboardingComplete) {
     return (
-      <OnboardingScreen
+      <OnboardingPage
         user={user}
         busy={busy}
         error={error}
@@ -520,477 +683,174 @@ const [applyBrowserUrl, setApplyBrowserUrl] = useState(null);
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileMenuOpen ? "sidebar-open" : ""}`}>
-        <Brand />
-        <div className="sidebar-label">WORKSPACE</div>
-        <nav className="side-nav" aria-label="Main navigation">
-          <NavButton
-            active={screen === "jobs"}
-            icon={<BriefcaseBusiness size={18} />}
-            onClick={() => {
-              setScreen("jobs");
-              setMobileMenuOpen(false);
-            }}
-          >
-            Discover roles
-          </NavButton>
-          <NavButton
-            active={screen === "saved"}
-            icon={<Star size={18} />}
-            onClick={() => {
-              setScreen("saved");
-              setMobileMenuOpen(false);
-            }}
-          >
-            Saved jobs <span className="nav-count">{savedIds.length}</span>
-          </NavButton>
-          <NavButton
-            active={screen === "applied"}
-            icon={<Check size={18} />}
-            onClick={() => {
-              setScreen("applied");
-              setMobileMenuOpen(false);
-            }}
-          >
-            Applied <span className="nav-count">{appliedIds.length}</span>
-          </NavButton>
-          <NavButton
-            active={screen === "settings" || screen === "about"}
-            icon={<Settings size={18} />}
-            onClick={() => {
-              setScreen("settings");
-              setMobileMenuOpen(false);
-            }}
-          >
-            Settings
-          </NavButton>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="profile-chip">
-            <div className="avatar">{(user.displayName || user.email || "U")[0].toUpperCase()}</div>
-            <div className="profile-chip-copy">
-              <strong>{user.displayName || "Candidate"}</strong>
-              <span>{user.email}</span>
-            </div>
-            <button
-              className="icon-button"
-              onClick={handleSignOut}
-              disabled={busy}
-              aria-label="Sign out"
-              title="Sign out"
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main-panel">
-        <header className="topbar">
-          <button
-            className="icon-button mobile-menu-button"
-            aria-label="Open navigation"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            <Menu size={20} />
-          </button>
-          <button
-            className="topbar-user"
-            onClick={() => setScreen("settings")}
-            aria-label="Open profile settings"
-          >
-            <div className="avatar avatar-small">{(user.displayName || user.email || "U")[0].toUpperCase()}</div>
-            <ChevronDown size={15} />
-          </button>
-        </header>
-
-        <div className="content-area">
-          {error && <div className="alert alert-error" role="alert">{error}</div>}
-          {notice && <div className="alert alert-success" role="status">{notice}</div>}
-          {!supabaseConfigured && (
-            <div className="alert alert-warning">
-              Add Supabase web settings to <code>web/.env.local</code> to load and update roles.
-            </div>
-          )}
-          {screen === "settings" ? (
-            <SettingsScreen
-              user={user}
-              profile={profile}
-              busy={busy}
-              onAbout={() => setScreen("about")}
-              onSignOut={handleSignOut}
-              onSave={async (nextProfile) => {
-                setBusy(true);
-                setError("");
-                setNotice("");
-                try {
-                  await setDoc(
-                    doc(db, "users", user.uid),
-                    { seekerProfile: nextProfile },
-                    { merge: true },
-                  );
-                  setProfile(nextProfile);
-                  setNotice("Profile updated.");
-                } catch (saveError) {
-                  setError(saveError.message || "Could not update your profile.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              onChangePassword={async (currentPassword, nextPassword) => {
-                setBusy(true);
-                setError("");
-                setNotice("");
-                try {
-                  if (user.providerData.every((item) => item.providerId !== "password")) {
-                    throw new Error("This account uses Google sign-in. Use password reset instead.");
-                  }
-                  if (!user.email || !currentPassword || nextPassword.length < 6) {
-                    throw new Error("Enter your current password and a new password of at least 6 characters.");
-                  }
-                  const credential = EmailAuthProvider.credential(user.email, currentPassword);
-                  await reauthenticateWithCredential(user, credential);
-                  await updatePassword(user, nextPassword);
-                  setNotice("Password updated.");
-                } catch (passwordError) {
-                  setError(passwordError.message || "Could not update your password.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              onPasswordReset={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  if (!user.email) throw new Error("No email is associated with this account.");
-                  await sendPasswordResetEmail(auth, user.email);
-                  setNotice(`Password reset email sent to ${user.email}.`);
-                } catch (resetError) {
-                  setError(resetError.message || "Could not send a password reset email.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            />
-          ) : screen === "about" ? (
-            <AboutScreen onBack={() => setScreen("settings")} />
-          ) : (
-            <JobsScreen
-              screen={screen}
-              jobs={visibleJobs}
-              allJobs={jobs}
-              loading={loadingJobs}
-              query={query}
-              onQueryChange={setQuery}
-              savedIds={savedIds}
-              appliedIds={appliedIds}
-              onSave={toggleSaved}
-              onSkip={skipJob}
-              onApply={recordApplication}
-              onDetails={setSelectedJob}
-            />
-          )}
-        </div>
-      </main>
-      {mobileMenuOpen && (
-        <button
-          className="mobile-backdrop"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-label="Close navigation"
-        />
-      )}
-      {selectedJob && (
-        <JobDetails
-          job={selectedJob}
-          saved={savedIds.includes(selectedJob.id)}
-          applied={appliedIds.includes(selectedJob.id)}
-          onClose={() => setSelectedJob(null)}
-          onSave={() => toggleSaved(selectedJob)}
-          onSkip={() => skipJob(selectedJob)}
-          onApply={() => recordApplication(selectedJob)}
-        />
-      )}
-      {applyBrowserUrl && (
-        <InAppBrowser url={applyBrowserUrl} onClose={() => setApplyBrowserUrl(null)} />
-      )}
-    </div>
-  );
-}
-
-function LoadingScreen({ label }) {
-  return (
-    <div className="loading-screen">
-      <Brand />
-      <div className="loading-spinner" />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function Brand() {
-  return (
-    <a className="brand" href="#" aria-label="iq9 Jobs home">
-      <span className="brand-mark">iq<span>9</span></span>
-      <span className="brand-name">jobs<span>.</span></span>
-    </a>
-  );
-}
-
-function AuthScreen({ configured, busy, error, notice, onSubmit, onGoogle, onReset, onClear }) {
-  const [mode, setMode] = useState("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  return (
-    <div className="auth-page">
-      <div className="auth-decoration auth-decoration-one" />
-      <div className="auth-decoration auth-decoration-two" />
-      <div className="auth-layout">
-        <section className="auth-story">
+        <aside className={`sidebar ${mobileMenuOpen ? "sidebar-open" : ""}`}>
           <Brand />
-          <div className="story-content">
-            <div className="eyebrow"><Sparkles size={15} /> YOUR NEXT MOVE, MADE CLEAR</div>
-            <h1>Better work.<br /><span>Less noise.</span></h1>
-            <p>Discover opportunities built around the things that matter: meaningful work, clear expectations, and a team that fits.</p>
-            <div className="story-proof">
-              <div className="proof-icon"><ShieldCheck size={19} /></div>
-              <div><strong>Signal over scroll</strong><span>Clear roles. Real details. Your next step.</span></div>
-            </div>
-          </div>
-          <div className="story-footer">A more human way to find your next role.</div>
-        </section>
-        <section className="auth-form-wrap">
-          <div className="auth-card">
-            <div className="auth-card-heading">
-              <span className="auth-badge"><UserRound size={17} /></span>
-              <div className="eyebrow">CANDIDATE ACCESS</div>
-              <h2>{mode === "create" ? "Create your account" : "Welcome back"}</h2>
-              <p>{mode === "create" ? "Start building a more focused job search." : "Sign in to pick up where you left off."}</p>
-            </div>
-            {!configured && (
-              <div className="alert alert-warning">
-                Firebase isn't configured. Copy <code>.env.example</code> to <code>.env.local</code> and add your web app settings.
-              </div>
-            )}
-            {error && <div className="alert alert-error" role="alert">{error}</div>}
-            {notice && <div className="alert alert-success" role="status">{notice}</div>}
-            <form
-              className="form-stack"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onClear();
-                onSubmit(mode, email.trim(), password);
+          <div className="sidebar-label">WORKSPACE</div>
+          <nav className="side-nav" aria-label="Main navigation">
+            <NavButton
+              active={screen === "jobs"}
+              icon={<BriefcaseBusiness size={18} />}
+              onClick={() => {
+                setScreen("jobs");
+                setMobileMenuOpen(false);
               }}
             >
-              <label className="field-label" htmlFor="auth-email">Email address</label>
-              <div className="input-wrap">
-                <UserRound size={17} />
-                <input
-                  id="auth-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="field-label-row">
-                <label className="field-label" htmlFor="auth-password">Password</label>
-                {mode === "signin" && (
-                  <button
-                    type="button"
-                    className="text-button"
-                    disabled={busy || !email.trim()}
-                    onClick={() => onReset(email.trim())}
-                  >
-                    Forgot password?
-                  </button>
-                )}
-              </div>
-              <div className="input-wrap">
-                <LockKeyhole size={17} />
-                <input
-                  id="auth-password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={mode === "create" ? "new-password" : "current-password"}
-                  placeholder="At least 6 characters"
-                  minLength={6}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-                <button
-                  className="input-trailing"
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-              </div>
-              <button className="button button-primary button-full" disabled={busy || !configured}>
-                {busy ? "Please wait…" : mode === "create" ? "Create account" : "Sign in"}
-                {!busy && <ArrowRight size={17} />}
-              </button>
-            </form>
-            <div className="divider"><span>OR</span></div>
-            <button
-              className="button button-google button-full"
-              disabled={busy || !configured}
-              onClick={onGoogle}
+              Discover roles
+            </NavButton>
+            <NavButton
+              active={screen === "saved"}
+              icon={<Star size={18} />}
+              onClick={() => {
+                setScreen("saved");
+                setMobileMenuOpen(false);
+              }}
             >
-              <GoogleMark /> Continue with Google
-            </button>
-            <p className="auth-switch">
-              {mode === "create" ? "Already have an account?" : "New to iq9?"}{" "}
-              <button
-                className="text-button"
-                onClick={() => {
-                  setMode(mode === "create" ? "signin" : "create");
-                  onClear();
-                }}
-              >
-                {mode === "create" ? "Sign in" : "Create account"}
-              </button>
-            </p>
-            <div className="auth-privacy"><ShieldCheck size={14} /> Your profile stays yours. Always.</div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function GoogleMark() {
-  return <span className="google-mark" aria-hidden="true">G</span>;
-}
-
-function OnboardingScreen({ user, busy, error, onSubmit }) {
-  const [step, setStep] = useState(0);
-  const [review, setReview] = useState(false);
-  const [form, setForm] = useState({
-    fullName: user.displayName || "",
-    phoneNumber: "",
-    primarySkillsets: "",
-    targetRole: "",
-    yearsExperience: "",
-    currentCompany: "",
-    currentLocation: "",
-    expectedLocation: "",
-    noticePeriod: "IMMEDIATE",
-  });
-  const steps = [
-    { key: "fullName", label: "What should we call you?", hint: "Your full name", type: "text" },
-    { key: "phoneNumber", label: "How can we reach you?", hint: "Phone number", type: "tel" },
-    { key: "primarySkillsets", label: "What are your strongest skills?", hint: "For example: React, TypeScript, UX research", type: "text" },
-    { key: "targetRole", label: "What role are you looking for?", hint: "For example: Frontend Engineer", type: "text" },
-    { key: "yearsExperience", label: "How many years of experience?", hint: "Years of experience", type: "number" },
-    { key: "currentCompany", label: "Where do you work today?", hint: "Current company", type: "text" },
-    { key: "currentLocation", label: "Where are you based?", hint: "Current city", type: "text" },
-    { key: "expectedLocation", label: "Where would you like to work?", hint: "Preferred city or Remote", type: "text" },
-  ];
-  const current = steps[step];
-  const update = (key, value) => setForm((previous) => ({ ...previous, [key]: value }));
-  const advance = (event) => {
-    event.preventDefault();
-    if (step < steps.length - 1) setStep(step + 1);
-    else setReview(true);
-  };
-
-  return (
-    <div className="onboarding-page">
-      <header className="onboarding-top"><Brand /><span>PROFILE SETUP</span></header>
-      <div className="onboarding-card">
-        <div className="onboarding-progress">
-          <div className="progress-copy"><span>YOUR CANDIDATE PROFILE</span><span>{review ? "Review" : `${step + 1} of ${steps.length + 1}`}</span></div>
-          <div className="progress-track"><span style={{ width: `${review ? 100 : ((step + 1) / (steps.length + 1)) * 100}%` }} /></div>
-        </div>
-        {review ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              onSubmit(form);
-            }}
-          >
-            <div className="onboarding-eyebrow"><Sparkles size={15} /> PROFILE SUMMARY</div>
-            <h1>Looking good, {form.fullName.split(" ")[0] || "there"}.</h1>
-            <p className="muted-copy">Review your details before we create your profile.</p>
-            <div className="review-grid">
-              {[
-                ["Full name", form.fullName],
-                ["Email", user.email],
-                ["Phone", form.phoneNumber],
-                ["Skills", form.primarySkillsets],
-                ["Target role", form.targetRole],
-                ["Experience", `${form.yearsExperience} years`],
-                ["Current company", form.currentCompany],
-                ["Current location", form.currentLocation],
-                ["Preferred location", form.expectedLocation],
-                ["Notice period", noticeLabel(form.noticePeriod)],
-              ].map(([label, value]) => (
-                <div className="review-item" key={label}><span>{label}</span><strong>{value || "Not provided"}</strong></div>
-              ))}
-            </div>
-            {error && <div className="alert alert-error" role="alert">{error}</div>}
-            <div className="onboarding-actions">
-              <button type="button" className="button button-secondary" onClick={() => setReview(false)} disabled={busy}><ArrowLeft size={16} /> Edit details</button>
-              <button className="button button-primary" disabled={busy}>{busy ? "Saving profile…" : "Confirm & continue"} <ArrowRight size={17} /></button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={advance}>
-            <div className="onboarding-eyebrow"><span className="agent-dot">iq</span> YOUR IQ9 AGENT</div>
-            <h1>{step === 0 ? `Hi${form.fullName ? `, ${form.fullName.split(" ")[0]}` : ""}. Let's get to know you.` : current.label}</h1>
-            <p className="muted-copy">{step === 0 ? current.label : "A few details help us find opportunities that fit."}</p>
-            <div className="onboarding-field">
-              <label className="field-label" htmlFor={`onboarding-${current.key}`}>{current.hint}</label>
-              {current.key === "yearsExperience" ? (
-                <input
-                  autoFocus
-                  id={`onboarding-${current.key}`}
-                  type={current.type}
-                  min="0"
-                  max="60"
-                  value={form[current.key]}
-                  onChange={(event) => update(current.key, event.target.value)}
-                  required
-                />
-              ) : (
-                <input
-                  autoFocus
-                  id={`onboarding-${current.key}`}
-                  type={current.type}
-                  value={form[current.key]}
-                  onChange={(event) => update(current.key, event.target.value)}
-                  required
-                />
-              )}
-              {current.key === "primarySkillsets" && <span className="field-hint">Separate skills with commas. You can list up to 6.</span>}
-            </div>
-            {step === steps.length - 1 && (
-              <div className="onboarding-field">
-                <label className="field-label" htmlFor="notice-period">Notice period</label>
-                <select id="notice-period" value={form.noticePeriod} onChange={(event) => update("noticePeriod", event.target.value)}>
-                  {noticeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
+              Saved jobs <span className="nav-count">{savedIds.length}</span>
+            </NavButton>
+            <NavButton
+              active={screen === "applied"}
+              icon={<Check size={18} />}
+              onClick={() => {
+                setScreen("applied");
+                setMobileMenuOpen(false);
+              }}
+            >
+              Applied <span className="nav-count">{appliedIds.length}</span>
+            </NavButton>
+            <NavButton
+              active={screen === "kanban"}
+              icon={<Check size={18} />}
+              onClick={() => {
+                setScreen("kanban");
+                setMobileMenuOpen(false);
+              }}
+            >
+              Kanban <span className="nav-count">{appliedIds.length}</span>
+            </NavButton>
+            <NavButton
+              active={screen === "settings" || screen === "about"}
+              icon={<Settings size={18} />}
+              onClick={() => {
+                setScreen("settings");
+                setMobileMenuOpen(false);
+              }}
+            >
+              Settings
+            </NavButton>
+          </nav>
+          <div className="sidebar-bottom">
+            <div className="profile-chip">
+              <div className="avatar">{(user.displayName || user.email || "U")[0].toUpperCase()}</div>
+              <div className="profile-chip-copy">
+                <strong>{user.displayName || "Candidate"}</strong>
+                <span>{user.email}</span>
               </div>
-            )}
-            {error && <div className="alert alert-error" role="alert">{error}</div>}
-            <div className="onboarding-actions">
-              {step > 0 && <button type="button" className="button button-secondary" onClick={() => setStep(step - 1)}><ArrowLeft size={16} /> Back</button>}
-              <button className="button button-primary" disabled={busy}>{step === steps.length - 1 ? "Review profile" : "Continue"} <ArrowRight size={17} /></button>
+              <button
+                className="icon-button"
+                onClick={handleSignOut}
+                disabled={busy}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut size={17} />
+              </button>
             </div>
-            <div className="onboarding-footnote"><ShieldCheck size={15} /> Your information is private and securely stored.</div>
-          </form>
+          </div>
+        </aside>
+
+        <main className="main-panel">
+          <header className="topbar">
+            <button
+              className="icon-button mobile-menu-button"
+              aria-label="Open navigation"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <Menu size={20} />
+            </button>
+          </header>
+
+          <div className="content-area">
+            {error && <Alert type="error">{error}</Alert>}
+            {notice && <Alert type="success">{notice}</Alert>}
+            {!supabaseConfigured && (
+              <Alert type="warning">
+                Add Supabase web settings to <code>web/.env.local</code> to load and update roles.
+              </Alert>
+            )}
+            {screen === "settings" ? (
+              <SettingsPage
+                user={user}
+                profile={profile}
+                busy={busy}
+                onSave={async (nextProfile) => {
+                  setBusy(true);
+                  setError("");
+                  setNotice("");
+                  try {
+                    await setDoc(
+                      doc(db, "users", user.uid),
+                      { seekerProfile: nextProfile },
+                      { merge: true },
+                    );
+                    setProfile(nextProfile);
+                    setNotice("Profile updated.");
+                  } catch (saveError) {
+                    setError(saveError.message || "Could not update your profile.");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              />
+            ) : screen === "about" ? (
+              <AboutScreen />
+            ) : screen === "kanban" ? (
+              <ApplicationKanban appliedIds={appliedIds} jobs={jobs} />
+            ) : (
+              <SeekerFeed
+                screen={screen}
+                jobs={visibleJobs}
+                allJobs={jobs}
+                loading={loadingJobs}
+                query={query}
+                onQueryChange={setQuery}
+                savedIds={savedIds}
+                appliedIds={appliedIds}
+                onSave={toggleSaved}
+                onSkip={skipJob}
+                onApply={recordApplication}
+                onDetails={setSelectedJob}
+              />
+            )}
+          </div>
+        </main>
+        {mobileMenuOpen && (
+          <button
+            className="mobile-backdrop"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation"
+          />
+        )}
+        {selectedJob && (
+          <JobDetailsModal
+            job={selectedJob}
+            saved={savedIds.includes(selectedJob.id)}
+            applied={appliedIds.includes(selectedJob.id)}
+            onClose={() => setSelectedJob(null)}
+            onSave={() => toggleSaved(selectedJob)}
+            onSkip={() => skipJob(selectedJob)}
+            onApply={() => recordApplication(selectedJob)}
+          />
+        )}
+        {applyBrowserUrl && (
+          <InAppBrowser url={applyBrowserUrl} onClose={() => setApplyBrowserUrl(null)} />
         )}
       </div>
-    </div>
-  );
-}
+    );
+  };
 
-function JobsScreen({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, onSave, onSkip, onApply, onDetails }) {
+// --- Seeker sub-components ---
+
+function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, onSave, onSkip, onApply, onDetails }) {
   const emptyTitle = screen === "saved" ? "Nothing saved yet" : screen === "applied" ? "No applications yet" : "No roles found";
   const emptyText = screen === "saved"
     ? "Save roles that catch your eye and find them here."
@@ -1079,7 +939,74 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
   );
 }
 
-function JobDetails({ job, saved, applied, onClose, onSave, onSkip, onApply }) {
+function ApplicationKanban({ appliedIds, jobs }) {
+  const statuses = ["SUBMITTED", "VIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "OFFER", "ARCHIVED"];
+  const appliedJobs = jobs.filter((j) => appliedIds.includes(j.id));
+  const byStatus = useMemo(() => {
+    const map = {};
+    statuses.forEach((s) => (map[s] = []));
+    appliedJobs.forEach((job) => {
+      // default all applied to SUBMITTED since we don't store per-app status locally yet
+      map["SUBMITTED"].push(job);
+    });
+    return map;
+  }, [appliedJobs]);
+
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">APPLICATION PIPELINE</div>
+          <h1>Application Kanban</h1>
+          <p>Track your applications from submission to offer.</p>
+        </div>
+      </div>
+      <div className="job-grid">
+        {statuses.map((status) => (
+          <div key={status} className="kanban-column">
+            <div className="kanban-header">
+              <h3>{status.charAt(0) + status.slice(1).toLowerCase()}</h3>
+              <span className="kanban-count">{byStatus[status].length}</span>
+            </div>
+            <div className="kanban-cards">
+              {byStatus[status].map((job) => (
+                <article key={job.id} className="job-card kanban-card">
+                  <div className="company-heading">
+                    <div className="company-name">{job.companyName}</div>
+                    <div className="company-location"><MapPin size={12} /> {job.location}</div>
+                  </div>
+                  <h3>{job.title}</h3>
+                  <div className="salary-line"><span>{moneyRange(job)}</span></div>
+                  <span className="tag">Submitted</span>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function AboutScreen() {
+  return (
+    <div className="about-page">
+      <div className="about-hero"><div className="about-mark">iq<span>9</span></div><div className="eyebrow">ABOUT IQ9 JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
+      <div className="about-values">
+        <div><span className="value-icon"><CircleHelp size={18} /></span><strong>Clarity first</strong><p>Know what the role asks for before you apply.</p></div>
+        <div><span className="value-icon"><Heart size={18} /></span><strong>People matter</strong><p>We make room for a better connection between people and teams.</p></div>
+        <div><span className="value-icon"><Sparkles size={18} /></span><strong>Less noise</strong><p>Spend your attention on the opportunities that matter.</p></div>
+      </div>
+      <div className="about-note">iq9 Jobs · Find your next move.</div>
+    </div>
+  );
+}
+
+function NavButton({ active, icon, children, onClick }) {
+  return <button className={`nav-button ${active ? "nav-active" : ""}`} onClick={onClick}>{icon}<span>{children}</span></button>;
+}
+
+function JobDetailsModal({ job, saved, applied, onClose, onSave, onSkip, onApply }) {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === "Escape") onClose();
@@ -1129,132 +1056,3 @@ function InAppBrowser({ url, onClose }) {
     </div>
   );
 }
-
-function SettingsScreen({ user, profile, busy, onAbout, onSignOut, onSave, onChangePassword, onPasswordReset }) {
-  const [editing, setEditing] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [targetTitle, setTargetTitle] = useState(profile.targetTitle || "");
-  const [skills, setSkills] = useState((profile.topSkills || []).join(", "));
-  const [location, setLocation] = useState(profile.expectedLocation || "");
-  const [salaryFloor, setSalaryFloor] = useState(profile.salaryFloor || "");
-  const [noticePeriod, setNoticePeriod] = useState(profile.noticePeriod || "IMMEDIATE");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [nextPassword, setNextPassword] = useState("");
-
-  useEffect(() => {
-    setTargetTitle(profile.targetTitle || "");
-    setSkills((profile.topSkills || []).join(", "));
-    setLocation(profile.expectedLocation || "");
-    setSalaryFloor(profile.salaryFloor || "");
-    setNoticePeriod(profile.noticePeriod || "IMMEDIATE");
-  }, [profile]);
-
-  const saveProfile = (event) => {
-    event.preventDefault();
-    const topSkills = skills.split(",").map((skill) => skill.trim()).filter(Boolean);
-    if (topSkills.length > 6) {
-      setFormError("Enter no more than 6 skills.");
-      return;
-    }
-    setFormError("");
-    onSave({
-      ...profile,
-      targetTitle,
-      topSkills,
-      expectedLocation: location,
-      salaryFloor: Number(salaryFloor) || 0,
-      noticePeriod,
-    });
-    setEditing(false);
-  };
-
-  return (
-    <div className="settings-page">
-      <div className="page-heading">
-        <div><div className="eyebrow">ACCOUNT & PREFERENCES</div><h1>Your settings</h1><p>Keep your profile and preferences up to date.</p></div>
-      </div>
-      <section className="settings-profile-card">
-        <div className="settings-profile-avatar">{(user.displayName || user.email || "U")[0].toUpperCase()}</div>
-        <div className="settings-profile-copy"><div className="section-label">SIGNED IN AS</div><h2>{user.displayName || "Candidate"}</h2><p>{user.email}</p></div>
-        <button className="button button-secondary" onClick={() => setEditing(!editing)}><UserRound size={16} /> Edit profile</button>
-      </section>
-      {editing && (
-        <form className="settings-card settings-form" onSubmit={saveProfile}>
-          <div className="settings-card-heading"><h2>Candidate preferences</h2><p>Your details help personalize the roles you see.</p></div>
-          <div className="settings-fields">
-            <TextField label="Target role" value={targetTitle} onChange={setTargetTitle} required />
-            <TextField label="Skills (comma separated, up to 6)" value={skills} onChange={setSkills} />
-            <TextField label="Preferred location" value={location} onChange={setLocation} />
-            <TextField label="Minimum salary (₹)" value={salaryFloor} onChange={setSalaryFloor} type="number" min="0" />
-            <label className="field-label">Notice period<select value={noticePeriod} onChange={(event) => setNoticePeriod(event.target.value)}>{noticeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          </div>
-          {formError && <div className="alert alert-error" role="alert">{formError}</div>}
-          <div className="settings-actions"><button type="button" className="button button-secondary" onClick={() => setEditing(false)}>Cancel</button><button className="button button-primary" disabled={busy}><Check size={16} /> Save changes</button></div>
-        </form>
-      )}
-      <section className="settings-card">
-        <div className="settings-card-heading"><div className="settings-heading-icon"><LockKeyhole size={18} /></div><div><h2>Password & security</h2><p>Update your password or request a reset link.</p></div></div>
-        <form
-          className="password-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onChangePassword(currentPassword, nextPassword);
-            setCurrentPassword("");
-            setNextPassword("");
-          }}
-        >
-          <TextField label="Current password" value={currentPassword} onChange={setCurrentPassword} type="password" autoComplete="current-password" />
-          <TextField label="New password" value={nextPassword} onChange={setNextPassword} type="password" minLength="6" autoComplete="new-password" />
-          <button className="button button-secondary" disabled={busy || !currentPassword || nextPassword.length < 6}>Update password</button>
-        </form>
-        <button className="text-button reset-link" onClick={onPasswordReset} disabled={busy}>Send password reset email</button>
-      </section>
-      <section className="settings-link-grid">
-        <button className="settings-link-card" onClick={onAbout}><span className="settings-heading-icon"><Info size={18} /></span><span><strong>About iq9 Jobs</strong><small>Our approach to better hiring</small></span><ArrowRight size={17} /></button>
-        <button className="settings-link-card" onClick={onSignOut} disabled={busy}><span className="settings-heading-icon settings-icon-red"><LogOut size={18} /></span><span><strong>Sign out</strong><small>Sign out from this device</small></span><ArrowRight size={17} /></button>
-      </section>
-    </div>
-  );
-}
-
-function TextField({ label, value, onChange, type = "text", ...props }) {
-  return (
-    <label className="field-label">
-      {label}
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} {...props} />
-    </label>
-  );
-}
-
-function AboutScreen({ onBack }) {
-  return (
-    <div className="about-page">
-      <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to settings</button>
-      <div className="about-hero"><div className="about-mark">iq<span>9</span></div><div className="eyebrow">ABOUT IQ9 JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
-      <div className="about-values">
-        <div><span className="value-icon"><CircleHelp size={18} /></span><strong>Clarity first</strong><p>Know what the role asks for before you apply.</p></div>
-        <div><span className="value-icon"><Heart size={18} /></span><strong>People matter</strong><p>We make room for a better connection between people and teams.</p></div>
-        <div><span className="value-icon"><Sparkles size={18} /></span><strong>Less noise</strong><p>Spend your attention on the opportunities that matter.</p></div>
-      </div>
-      <div className="about-note">iq9 Jobs · Find your next move.</div>
-    </div>
-  );
-}
-
-function NavButton({ active, icon, children, onClick }) {
-  return <button className={`nav-button ${active ? "nav-active" : ""}`} onClick={onClick}>{icon}<span>{children}</span></button>;
-}
-
-function screenTitle(screen) {
-  if (screen === "saved") return "Saved jobs";
-  if (screen === "applied") return "Applied jobs";
-  if (screen === "settings") return "Settings";
-  if (screen === "about") return "About us";
-  return "Discover roles";
-}
-
-function noticeLabel(value) {
-  return noticeOptions.find(([key]) => key === value)?.[1] || value;
-}
-
-export default App;
