@@ -4,60 +4,57 @@ import { useRole } from "../context/RoleContext.jsx";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../backend.js";
 
-const WORK_MODES = ["REMOTE", "HYBRID", "ONSITE", "UNSPECIFIED"];
-const WORK_MODE_LABELS = {
-  REMOTE: "Remote",
-  HYBRID: "Hybrid",
-  ONSITE: "Onsite",
-  UNSPECIFIED: "Unspecified",
-};
-
 export default function JobBuilder({ onBack, onJobCreated }) {
   const { user } = useRole();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    title: "",
+    jobtitle: "",
     company: "",
-    salaryMin: "",
-    salaryMax: "",
-    workMode: "REMOTE",
-    skills: ["", "", ""],
-    knockoutQuestions: ["", "", ""],
+    compensation: "",
+    experience: "",
     location: "",
-    description: "",
-    minExperience: "",
-    maxExperience: "",
+    region: "",
+    skillsets: "",
+    jobdesc: "",
+    responsibilities: "",
+    isavailable: true,
   });
 
   const steps = [
-    { key: "title", label: "Role Title", hint: "e.g. Frontend Engineer", type: "text" },
+    { key: "jobtitle", label: "Job Title", hint: "e.g. Frontend Engineer", type: "text" },
     { key: "company", label: "Company", hint: "Company name", type: "text" },
-    { key: "salary", label: "Salary Range", hint: "Minimum and maximum (INR)", type: "number" },
-    { key: "workMode", label: "Work Mode", hint: "Remote / Hybrid / Onsite", type: "select" },
-    { key: "skills", label: "Core Skills (exactly 3)", hint: "Pick 3 non-negotiable skills", type: "skills" },
-    { key: "knockout", label: "Knockout Questions (3)", hint: "Binary or numeric screening questions", type: "knockout" },
-    { key: "details", label: "Role Details", hint: "Location, experience, description", type: "details" },
+    { key: "compensation", label: "Compensation", hint: "e.g. ₹8-12 LPA", type: "text" },
+    { key: "experience", label: "Experience (years)", hint: "Number of years", type: "number" },
+    { key: "location", label: "Location", hint: "e.g. Bangalore, India", type: "text" },
+    { key: "region", label: "Region", hint: "e.g. South India / Remote", type: "text" },
+    { key: "skillsets", label: "Skillsets (comma separated)", hint: "e.g. React, TypeScript, Node.js", type: "text" },
+    { key: "jobdesc", label: "Job Description", hint: "Brief description of the role", type: "textarea" },
+    { key: "responsibilities", label: "Responsibilities", hint: "Key responsibilities of the role", type: "textarea" },
   ];
 
   const current = steps[step];
   const canAdvance = useCallback(() => {
     switch (current.key) {
-      case "title":
-        return Boolean(form.title.trim());
+      case "jobtitle":
+        return Boolean(form.jobtitle.trim());
       case "company":
         return Boolean(form.company.trim());
-      case "salary":
-        return Boolean(form.salaryMin.trim()) && Boolean(form.salaryMax.trim()) && Number(form.salaryMax) > Number(form.salaryMin);
-      case "workMode":
-        return Boolean(form.workMode);
-      case "skills":
-        return form.skills.filter((s) => s.trim()).length === 3;
-      case "knockout":
-        return form.knockoutQuestions.filter((q) => q.trim()).length === 3;
-      case "details":
-        return Boolean(form.location.trim()) && Boolean(form.description.trim());
+      case "compensation":
+        return Boolean(form.compensation.trim());
+      case "experience":
+        return Boolean(form.experience.trim()) && !isNaN(Number(form.experience));
+      case "location":
+        return Boolean(form.location.trim());
+      case "region":
+        return Boolean(form.region.trim());
+      case "skillsets":
+        return Boolean(form.skillsets.trim());
+      case "jobdesc":
+        return Boolean(form.jobdesc.trim());
+      case "responsibilities":
+        return Boolean(form.responsibilities.trim());
       default:
         return true;
     }
@@ -65,20 +62,6 @@ export default function JobBuilder({ onBack, onJobCreated }) {
 
   const update = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    setError("");
-  };
-
-  const updateSkill = (index, value) => {
-    const skills = [...form.skills];
-    skills[index] = value;
-    setForm({ ...form, skills });
-    setError("");
-  };
-
-  const updateKnockout = (index, value) => {
-    const qs = [...form.knockoutQuestions];
-    qs[index] = value;
-    setForm({ ...form, knockoutQuestions: qs });
     setError("");
   };
 
@@ -92,37 +75,32 @@ export default function JobBuilder({ onBack, onJobCreated }) {
       setStep(step + 1);
       return;
     }
-    // Final submit — create job
+    // Final submit — create job with exact schema
     setBusy(true);
     setError("");
     try {
-      const jobId = crypto.randomUUID();
+      const jobid = crypto.randomUUID();
       const job = {
-        id: jobId,
-        title: form.title.trim(),
+        jobid,
+        jobtitle: form.jobtitle.trim(),
         company: form.company.trim(),
+        compensation: form.compensation.trim(),
+        experience: Number(form.experience),
         location: form.location.trim(),
-        region: form.location.trim().split(/[,/]/).map((p) => p.trim()).filter(Boolean)[0] || "",
-        work_style: form.workMode,
-        min_experience: form.minExperience ? Number(form.minExperience) : null,
-        max_experience: form.maxExperience ? Number(form.maxExperience) : null,
-        required_skills: form.skills.map((s) => s.trim()).filter(Boolean),
-        description_text: form.description.trim(),
-        apply_url: "",
-        posted_at: new Date().toISOString(),
-        salary_min: Number(form.salaryMin) || 0,
-        salary_max: Number(form.salaryMax) || 0,
-        verified_company: false,
-        is_active: true,
+        region: form.region.trim(),
+        skillsets: form.skillsets.trim(),
+        jobdesc: form.jobdesc.trim(),
+        responsibilities: form.responsibilities.trim(),
+        isavailable: form.isavailable,
+        jobposted: new Date().toISOString(),
         recruiterId: user.uid,
         recruiterEmail: user.email || "",
-        knockoutQuestions: form.knockoutQuestions.map((q) => q.trim()).filter(Boolean),
       };
-      await setDoc(doc(db, "jobs", jobId), job);
+      await setDoc(doc(db, "jobs", jobid), job);
       setError("");
       if (onJobCreated) onJobCreated(job);
     } catch (err) {
-      setError(err.message || "Could not create the role.");
+      setError(err.message || "Could not create the job.");
     } finally {
       setBusy(false);
     }
@@ -136,8 +114,8 @@ export default function JobBuilder({ onBack, onJobCreated }) {
         <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to dashboard</button>
         <div>
           <div className="eyebrow">STRUCTURED JOB BUILDER</div>
-          <h1>Create a new role</h1>
-          <p>A 3-minute, standardized job requisition. Salary range and exactly 3 skills are mandatory.</p>
+          <h1>Create a new job</h1>
+          <p>A standardized job requisition. All fields are required.</p>
         </div>
       </div>
 
@@ -151,13 +129,13 @@ export default function JobBuilder({ onBack, onJobCreated }) {
         </div>
 
         <form onSubmit={handleSubmit} className="step-form">
-          {current.key === "title" && (
+          {current.key === "jobtitle" && (
             <>
-              <label className="field-label">Role title</label>
+              <label className="field-label">Job title</label>
               <input
                 autoFocus
-                value={form.title}
-                onChange={(e) => update("title", e.target.value)}
+                value={form.jobtitle}
+                onChange={(e) => update("jobtitle", e.target.value)}
                 placeholder="e.g. Senior Frontend Engineer"
                 required
               />
@@ -176,112 +154,91 @@ export default function JobBuilder({ onBack, onJobCreated }) {
               />
             </>
           )}
-          {current.key === "salary" && (
+          {current.key === "compensation" && (
             <>
-              <div className="settings-fields">
-                <label className="field-label">Minimum salary (₹)</label>
-                <input
-                  autoFocus
-                  type="number"
-                  min="0"
-                  value={form.salaryMin}
-                  onChange={(e) => update("salaryMin", e.target.value)}
-                  required
-                />
-                <label className="field-label">Maximum salary (₹)</label>
-                <input
-                  autoFocus
-                  type="number"
-                  min="0"
-                  value={form.salaryMax}
-                  onChange={(e) => update("salaryMax", e.target.value)}
-                  required
-                />
-              </div>
-              <p className="field-hint">Both floor and ceiling are required. Max must exceed min.</p>
-            </>
-          )}
-          {current.key === "workMode" && (
-            <>
-              <label className="field-label">Work mode</label>
-              <select
+              <label className="field-label">Compensation</label>
+              <input
                 autoFocus
-                value={form.workMode}
-                onChange={(e) => update("workMode", e.target.value)}
-              >
-                {WORK_MODES.map((m) => (
-                  <option key={m} value={m}>{WORK_MODE_LABELS[m]}</option>
-                ))}
-              </select>
+                value={form.compensation}
+                onChange={(e) => update("compensation", e.target.value)}
+                placeholder="e.g. ₹8-12 LPA"
+                required
+              />
             </>
           )}
-          {current.key === "skills" && (
+          {current.key === "experience" && (
             <>
-              <label className="field-label">Core skills (exactly 3)</label>
-              <div className="skills-inputs">
-                {form.skills.map((skill, index) => (
-                  <input
-                    key={index}
-                    autoFocus={index === 0}
-                    value={skill}
-                    onChange={(e) => updateSkill(index, e.target.value)}
-                    placeholder={`Skill ${index + 1}`}
-                  />
-                ))}
-              </div>
-              <p className="field-hint">Exactly 3 non-negotiable skills from the standardized taxonomy.</p>
-              {form.skills.filter((s) => s.trim()).length !== 3 && (
-                <span className="field-hint error-hint">You have {form.skills.filter((s) => s.trim()).length} of 3 skills.</span>
-              )}
+              <label className="field-label">Experience (years)</label>
+              <input
+                autoFocus
+                type="number"
+                min="0"
+                value={form.experience}
+                onChange={(e) => update("experience", e.target.value)}
+                required
+              />
             </>
           )}
-          {current.key === "knockout" && (
+          {current.key === "location" && (
             <>
-              <label className="field-label">Knockout questions (3)</label>
-              <div className="skills-inputs">
-                {form.knockoutQuestions.map((q, index) => (
-                  <input
-                    key={index}
-                    autoFocus={index === 0}
-                    value={q}
-                    onChange={(e) => updateKnockout(index, e.target.value)}
-                    placeholder={`Question ${index + 1} (Yes/No or numeric)`}
-                  />
-                ))}
-              </div>
-              <p className="field-hint">Exactly 3 binary or numeric screening questions.</p>
-              {form.knockoutQuestions.filter((q) => q.trim()).length !== 3 && (
-                <span className="field-hint error-hint">You have {form.knockoutQuestions.filter((q) => q.trim()).length} of 3 questions.</span>
-              )}
+              <label className="field-label">Location</label>
+              <input
+                autoFocus
+                value={form.location}
+                onChange={(e) => update("location", e.target.value)}
+                placeholder="e.g. Bangalore, India"
+                required
+              />
             </>
           )}
-          {current.key === "details" && (
+          {current.key === "region" && (
             <>
-              <div className="settings-fields">
-                <label className="field-label">Location</label>
-                <input
-                  autoFocus
-                  value={form.location}
-                  onChange={(e) => update("location", e.target.value)}
-                  placeholder="e.g. Bangalore, India / Remote"
-                  required
-                />
-                <label className="field-label">Role description / team objective</label>
-                <textarea
-                  autoFocus
-                  value={form.description}
-                  onChange={(e) => update("description", e.target.value)}
-                  rows="4"
-                  placeholder="One-sentence team objective and what the role owns."
-                  required
-                />
-                <div className="settings-fields">
-                  <label className="field-label">Min experience (years)</label>
-                  <input type="number" min="0" value={form.minExperience} onChange={(e) => update("minExperience", e.target.value)} />
-                  <label className="field-label">Max experience (years)</label>
-                  <input type="number" min="0" value={form.maxExperience} onChange={(e) => update("maxExperience", e.target.value)} />
-                </div>
-              </div>
+              <label className="field-label">Region</label>
+              <input
+                autoFocus
+                value={form.region}
+                onChange={(e) => update("region", e.target.value)}
+                placeholder="e.g. South India / Remote"
+                required
+              />
+            </>
+          )}
+          {current.key === "skillsets" && (
+            <>
+              <label className="field-label">Skillsets (comma separated)</label>
+              <input
+                autoFocus
+                value={form.skillsets}
+                onChange={(e) => update("skillsets", e.target.value)}
+                placeholder="e.g. React, TypeScript, Node.js"
+                required
+              />
+            </>
+          )}
+          {current.key === "jobdesc" && (
+            <>
+              <label className="field-label">Job description</label>
+              <textarea
+                autoFocus
+                value={form.jobdesc}
+                onChange={(e) => update("jobdesc", e.target.value)}
+                rows="4"
+                placeholder="Brief description of the role and team."
+                required
+              />
+            </>
+          )}
+          {current.key === "responsibilities" && (
+            <>
+              <label className="field-label">Responsibilities</label>
+              <textarea
+                autoFocus
+                value={form.responsibilities}
+                onChange={(e) => update("responsibilities", e.target.value)}
+                rows="4"
+                placeholder="Key responsibilities of the role."
+                required
+              />
             </>
           )}
 
@@ -289,13 +246,13 @@ export default function JobBuilder({ onBack, onJobCreated }) {
 
           <div className="step-actions">
             {step > 0 && (
-              <Button className="button-secondary" onClick={() => setStep(step - 1)} disabled={busy}>
+              <button className="button button-secondary" onClick={() => setStep(step - 1)} disabled={busy}>
                 <ArrowLeft size={16} /> Back
-              </Button>
+              </button>
             )}
-            <Button className="button-primary" onClick={(e) => { e.preventDefault(); handleSubmit(e); }} disabled={busy || !canAdvance()}>
-              {busy ? "Creating role…" : step === steps.length - 1 ? "Publish role" : "Continue"} <ArrowRight size={17} />
-            </Button>
+            <button className="button button-primary" onClick={(e) => { e.preventDefault(); handleSubmit(e); }} disabled={busy || !canAdvance()}>
+              {busy ? "Creating job…" : step === steps.length - 1 ? "Publish job" : "Continue"} <ArrowRight size={17} />
+            </button>
           </div>
         </form>
       </div>

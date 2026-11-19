@@ -91,7 +91,7 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
     const jobApps = applicants.filter((a) => a.jobId === job.id);
     const scoredApps = jobApps.map((app) => {
       const candidateSkills = app.seekerProfile?.topSkills || [];
-      const jobSkills = job.required_skills || [];
+      const jobSkills = job.skillsets ? job.skillsets.split(",").map((s) => s.trim()).filter(Boolean) : [];
       const score = calculateMatchScore(candidateSkills, jobSkills);
       return { ...app, matchScore: score };
     }).sort((a, b) => b.matchScore - a.matchScore);
@@ -137,16 +137,16 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
           ) : (
             <div className="job-grid">
               {jobs.map((job) => (
-                <article key={job.id} className="job-card recruiter-job-card">
+                <article key={job.jobid || job.id} className="job-card recruiter-job-card">
                   <div className="company-heading">
                     <div className="company-name">{job.company}</div>
                     <div className="company-location"><MapPin size={13} /> {job.location || "Location not specified"}</div>
                   </div>
-                  <h3>{job.title}</h3>
-                  <div className="salary-line"><span>{job.salary_min || 0} – ₹{job.salary_max || 0}</span></div>
-                  <span className="tag tag-mode">{job.work_style}</span>
+                  <h3>{job.jobtitle}</h3>
+                  <div className="salary-line"><span>{job.compensation || "Compensation not listed"}</span></div>
+                  <span className="tag tag-mode">{job.experience != null ? job.experience + " years exp" : ""}</span>
                   <div className="skill-list" style={{ marginTop: 10 }}>
-                    {(job.required_skills || []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
+                    {(job.skillsets ? job.skillsets.split(",").map((s) => s.trim()).filter(Boolean) : []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
                   </div>
                   <div className="job-card-actions" style={{ marginTop: 16 }}>
                     <button className="button button-secondary" onClick={() => setShowBuilder(true)}>Edit</button>
@@ -233,13 +233,13 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
           ) : (
             <div className="review-by-job">
               {applicantsByJob.map(({ job, applicants: jobApplicants }) => (
-                <article key={job.id} className="review-job-card">
+                <article key={job.jobid || job.id} className="review-job-card">
                   <div className="review-job-header">
-                    <h3>{job.title}</h3>
-                    <span className="tag tag-mode">{job.work_style}</span>
+                    <h3>{job.jobtitle}</h3>
+                    <span className="tag tag-mode">{job.experience != null ? job.experience + " yrs exp" : ""}</span>
                   </div>
                   <div className="skill-list" style={{ marginBottom: 12 }}>
-                    {(job.required_skills || []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
+                    {(job.skillsets ? job.skillsets.split(",").map((s) => s.trim()).filter(Boolean) : []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
                   </div>
                   <div className="admin-table-wrap">
                     <table className="admin-table">

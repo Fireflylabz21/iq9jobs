@@ -91,16 +91,14 @@ function saveList(name, value, user) {
 }
 
 function moneyRange(job) {
-  if (!job.salaryMin || !job.salaryMax) return "Compensation not listed";
-  return `₹${Number(job.salaryMin).toLocaleString("en-IN")} – ₹${Number(job.salaryMax).toLocaleString("en-IN")}`;
+  if (!job.compensation) return "Compensation not listed";
+  return job.compensation;
 }
 
 function experienceRange(job) {
-  if (job.minExperience != null && job.maxExperience != null) {
-    return `${job.minExperience}–${job.maxExperience} years`;
+  if (job.experience != null && job.experience > 0) {
+    return `${job.experience} years`;
   }
-  if (job.minExperience != null) return `${job.minExperience}+ years`;
-  if (job.maxExperience != null) return `Up to ${job.maxExperience} years`;
   return null;
 }
 
@@ -111,22 +109,19 @@ function deriveRegion(location) {
 }
 
 function normalizeJob(row) {
+  const skillsets = row.skillsets || "";
   return {
-    id: row.id,
-    title: row.title || "Untitled role",
+    id: row.jobid || row.id,
+    title: row.jobtitle || "Untitled role",
     companyName: row.company || "Company",
     location: row.location || "",
     region: row.region || deriveRegion(row.location) || "",
-    workMode: row.work_style || "Unspecified",
-    minExperience: row.min_experience,
-    maxExperience: row.max_experience,
-    coreSkills: Array.isArray(row.required_skills) ? row.required_skills : [],
-    teamObjective: row.description_text || "",
-    applyUrl: row.apply_url || "",
-    postedAt: row.posted_at || "",
-    salaryMin: row.salary_min || 0,
-    salaryMax: row.salary_max || 0,
-    verifiedCompany: Boolean(row.verified_company),
+    experience: row.experience != null ? Number(row.experience) : 0,
+    coreSkills: skillsets.split(",").map((s) => s.trim()).filter(Boolean),
+    teamObjective: row.jobdesc || "",
+    postedAt: row.jobposted || "",
+    compensation: row.compensation || "",
+    isAvailable: row.isavailable !== false,
   };
 }
 
@@ -479,56 +474,53 @@ export default function RouterApp() {
     const expectedLocation = profile.expectedLocation || "";
     const hasProfilePrefs = profileSkills.length > 0 || Boolean(targetTitle) || Boolean(expectedLocation);
 
-    supabase
-      .from("jobs")
-      .select(
-        "id,title,company,location,region,work_style,min_experience,max_experience,required_skills,description_text,apply_url,posted_at",
-      )
-      .eq("is_active", true)
-      .order("posted_at", { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (!active) return;
-        if (fetchError) throw fetchError;
-        const allJobs = (data || []).map(normalizeJob);
+    if (!db) {
+      setJobs([]);
+      setMatchSource("none");
+      setLoadingJobs(false);
+      return;
+    }
+    const q = query(collection(db, "jobs"), where("isavailable", "==", true));
+    getDocs(q).then((snap) => {
+      if (!active) return;
+      const allJobs = snap.docs.map((d) => normalizeJob({ id: d.id, ...d.data() }));
 
-        let matched = allJobs;
-        let source = "all";
+      let matched = allJobs;
+      let source = "all";
 
-        if (hasProfilePrefs) {
-          matched = allJobs.filter((job) => {
-            const skillMatch = skillsOverlap(job.coreSkills, profileSkills);
-            const titleMatch = titleMatches(job.title, targetTitle);
-            const locationMatch = sameLocation(job.location, expectedLocation) || sameLocation(job.region, expectedLocation);
-            return skillMatch || titleMatch || locationMatch;
-          });
-          source = "profile";
-        }
+      if (hasProfilePrefs) {
+        matched = allJobs.filter((job) => {
+          const skillMatch = skillsOverlap(job.coreSkills, profileSkills);
+          const titleMatch = titleMatches(job.title, targetTitle);
+          const locationMatch = sameLocation(job.location, expectedLocation) || sameLocation(job.region, expectedLocation);
+          return skillMatch || titleMatch || locationMatch;
+        });
+        source = "profile";
+      }
 
-        if (matched.length === 0 && expectedLocation) {
-          matched = allJobs.filter(
-            (job) =>
-              sameLocation(job.location, expectedLocation) ||
-              sameLocation(job.region, expectedLocation) ||
-              sameLocation(job.region, deriveRegion(expectedLocation)),
-          );
-          source = "location";
-        }
+      if (matched.length === 0 && expectedLocation) {
+        matched = allJobs.filter(
+          (job) =>
+            sameLocation(job.location, expectedLocation) ||
+            sameLocation(job.region, expectedLocation) ||
+            sameLocation(job.region, deriveRegion(expectedLocation)),
+        );
+        source = "location";
+      }
 
-        if (matched.length === 0) {
-          matched = allJobs;
-          source = "all";
-        }
+      if (matched.length === 0) {
+        matched = allJobs;
+        source = "all";
+      }
 
-        setJobs(matched);
-        setMatchSource(source);
-        setError("");
-      })
-      .catch((fetchError) => {
-        if (active) setError(fetchError.message || "Could not load jobs.");
-      })
-      .finally(() => {
-        if (active) setLoadingJobs(false);
-      });
+      setJobs(matched);
+      setMatchSource(source);
+      setError("");
+    }).catch((fetchError) => {
+      if (active) setError(fetchError.message || "Could not load jobs.");
+    }).finally(() => {
+      if (active) setLoadingJobs(false);
+    });
     return () => {
       active = false;
     };
