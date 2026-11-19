@@ -30,7 +30,7 @@ export default function CandidateReviewQueue({ onBack }) {
     setLoading(true);
     const q = query(
       collection(db, "users"),
-      where("role", "==", "seeker"),
+      where("RoleContext", "==", "seeker"),
     );
     getDocs(q).then((snap) => {
       const list = snap.docs

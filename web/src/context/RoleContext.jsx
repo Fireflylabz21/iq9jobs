@@ -36,7 +36,7 @@ export function RoleProvider({ children }) {
       try {
         const snapshot = await getDoc(doc(db, "users", currentUser.uid));
         const data = snapshot.exists() ? snapshot.data() : {};
-        const userRole = data.role || ROLES.SEEKER;
+        const userRole = data.RoleContext || ROLES.SEEKER;
         setRole(userRole);
         setRoleData(data);
       } catch {
@@ -51,11 +51,11 @@ export function RoleProvider({ children }) {
   const setUserRole = async (uid, nextRole) => {
     await setDoc(
       doc(db, "users", uid),
-      { role: nextRole, roleUpdatedAt: new Date().toISOString() },
+      { RoleContext: nextRole, roleUpdatedAt: new Date().toISOString() },
       { merge: true },
     );
     setRole(nextRole);
-    if (roleData) setRoleData({ ...roleData, role: nextRole });
+    if (roleData) setRoleData({ ...roleData, RoleContext: nextRole });
   };
 
   const signOut = async () => {

@@ -26,7 +26,7 @@ export default function AdminPanel({ user, onSignOut, busy }) {
     return (
       (u.email || "").toLowerCase().includes(q) ||
       (u.displayName || "").toLowerCase().includes(q) ||
-      (u.role || "").toLowerCase().includes(q)
+      (u.RoleContext || "").toLowerCase().includes(q)
     );
   });
 
@@ -34,7 +34,7 @@ export default function AdminPanel({ user, onSignOut, busy }) {
     setSaving((prev) => new Set([...prev, uid]));
     try {
       await setUserRole(uid, nextRole);
-      setUsers((prev) => prev.map((u) => (u.id === uid ? { ...u, role: nextRole } : u)));
+      setUsers((prev) => prev.map((u) => (u.id === uid ? { ...u, RoleContext: nextRole } : u)));
     } catch (err) {
       alert(err.message || "Could not update role.");
     } finally {
@@ -94,11 +94,11 @@ export default function AdminPanel({ user, onSignOut, busy }) {
                     </td>
                     <td>{u.email || "—"}</td>
                     <td>
-                      <span className={`role-badge role-${u.role}`}>{u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : "—"}</span>
+                      <span className={`role-badge role-${u.RoleContext}`}>{u.RoleContext ? u.RoleContext.charAt(0).toUpperCase() + u.RoleContext.slice(1) : "—"}</span>
                     </td>
                     <td>
                       <select
-                        value={u.role || "seeker"}
+                        value={u.RoleContext || "seeker"}
                         onChange={(e) => handleRoleChange(u.id, e.target.value)}
                         disabled={saving.has(u.id) || busy}
                         className="role-select"
