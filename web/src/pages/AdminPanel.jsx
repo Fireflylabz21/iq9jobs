@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, ShieldCheck, LogOut, ArrowRight, Search, Edit, Plus } from "lucide-react";
+import { Users, ShieldCheck, LogOut, ArrowRight, Search } from "lucide-react";
 import { useRole, ROLES } from "../context/RoleContext.jsx";
 import { collection, query, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "../backend.js";
@@ -10,7 +10,7 @@ export default function AdminPanel({ user, onSignOut, busy }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [queryText, setQueryText] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(new Set());
 
   useEffect(() => {
     if (!db) return;
@@ -30,13 +30,19 @@ export default function AdminPanel({ user, onSignOut, busy }) {
     );
   });
 
-  const setRole = async (uid, nextRole) => {
+  const handleRoleChange = async (uid, nextRole) => {
+    setSaving((prev) => new Set([...prev, uid]));
     try {
       await setUserRole(uid, nextRole);
       setUsers((prev) => prev.map((u) => (u.id === uid ? { ...u, role: nextRole } : u)));
-      setEditingId(null);
     } catch (err) {
       alert(err.message || "Could not update role.");
+    } finally {
+      setSaving((prev) => {
+        const next = new Set(prev);
+        next.delete(uid);
+        return next;
+      });
     }
   };
 
@@ -88,29 +94,21 @@ export default function AdminPanel({ user, onSignOut, busy }) {
                     </td>
                     <td>{u.email || "—"}</td>
                     <td>
-                      {editingId === u.id ? (
-                        <select
-                          value={u.role}
-                          onChange={(e) => setRole(u.id, e.target.value)}
-                          className="role-select"
-                        >
-                          {Object.values(ROLES).map((r) => (
-                            <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`role-badge role-${u.role}`}>{u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : "—"}</span>
-                      )}
+                      <span className={`role-badge role-${u.role}`}>{u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : "—"}</span>
                     </td>
                     <td>
-                      <button
-                        className="button button-secondary"
-                        onClick={() => setEditingId(editingId === u.id ? null : u.id)}
-                        disabled={busy}
+                      <select
+                        value={u.role || "seeker"}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        disabled={saving.has(u.id) || busy}
+                        className="role-select"
                       >
-                         {editingId === u.id ? "Save" : (<> <Edit size={14} /> Change role</>)}
-                      </button>
-                      {u.id === user.uid && <span className="muted-copy" style={{ fontSize: 11, color: "#66748c" }}>You</span>}
+                        {Object.values(ROLES).map((r) => (
+                          <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                        ))}
+                      </select>
+                      {u.id === user.uid && <span className="muted-copy" style={{ fontSize: 11, color: "#66748c", marginLeft: 8 }}>You</span>}
+                      {saving.has(u.id) && <span style={{ fontSize: 11, color: "#7bcfff", marginLeft: 8 }}>Saving…</span>}
                     </td>
                   </tr>
                 ))}
