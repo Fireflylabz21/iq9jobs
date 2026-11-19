@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Users, ShieldCheck, LogOut, ArrowRight, Search } from "lucide-react";
+import { Users, ShieldCheck, LogOut, ArrowRight, Search, DollarSign, TrendingUp, LayoutGrid, Activity } from "lucide-react";
 import { useRole, ROLES } from "../context/RoleContext.jsx";
 import { collection, query, getDocs, doc, setDoc } from "firebase/firestore";
-import { db } from "../backend.js";
+import { db, supabase } from "../backend.js";
 
 export default function AdminPanel({ user, onSignOut, busy }) {
   const { isAdmin, setUserRole } = useRole();
@@ -11,6 +11,8 @@ export default function AdminPanel({ user, onSignOut, busy }) {
   const [loading, setLoading] = useState(false);
   const [queryText, setQueryText] = useState("");
   const [saving, setSaving] = useState(new Set());
+  const [stats, setStats] = useState({ totalSeekers: 0, totalRecruiters: 0, totalAdmins: 0, totalJobs: 0 });
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     if (!db) return;
@@ -20,6 +22,27 @@ export default function AdminPanel({ user, onSignOut, busy }) {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [db]);
+
+  useEffect(() => {
+    if (!db || !supabase) return;
+    setStatsLoading(true);
+    Promise.all([
+      getDocs(collection(db, "users")),
+      supabase.from("jobs").select("id", { count: "exact", head: true }),
+    ]).then(([userSnap, jobRes]) => {
+      const allUsers = userSnap.docs.map((d) => d.data());
+      const totalSeekers = allUsers.filter((u) => u.RoleContext === "seeker").length;
+      const totalRecruiters = allUsers.filter((u) => u.RoleContext === "recruiter").length;
+      const totalAdmins = allUsers.filter((u) => u.RoleContext === "admin").length;
+      setStats({
+        totalSeekers,
+        totalRecruiters,
+        totalAdmins,
+        totalJobs: jobRes.count || 0,
+      });
+      setStatsLoading(false);
+    }).catch(() => setStatsLoading(false));
+  }, [db, supabase]);
 
   const filtered = users.filter((u) => {
     const q = queryText.toLowerCase();
@@ -35,6 +58,12 @@ export default function AdminPanel({ user, onSignOut, busy }) {
     try {
       await setUserRole(uid, nextRole);
       setUsers((prev) => prev.map((u) => (u.id === uid ? { ...u, RoleContext: nextRole } : u)));
+      setStats((prev) => ({
+        ...prev,
+        totalSeekers: prev.totalSeekers - (nextRole === "seeker" ? 0 : 1) + (nextRole === "seeker" ? 1 : 0),
+        totalRecruiters: prev.totalRecruiters - (nextRole === "recruiter" ? 0 : 1) + (nextRole === "recruiter" ? 1 : 0),
+        totalAdmins: prev.totalAdmins - (nextRole === "admin" ? 0 : 1) + (nextRole === "admin" ? 1 : 0),
+      }));
     } catch (err) {
       alert(err.message || "Could not update role.");
     } finally {
@@ -45,6 +74,12 @@ export default function AdminPanel({ user, onSignOut, busy }) {
       });
     }
   };
+
+  const statTiles = [
+    { label: "Total Job Seekers", value: stats.totalSeekers, icon: <Activity size={24} />, color: "#226fe8" },
+    { label: "Total Recruiters", value: stats.totalRecruiters, icon: <DollarSign size={24} />, color: "#7161eb" },
+    { label: "Total Job Posts Live", value: stats.totalJobs, icon: <LayoutGrid size={24} />, color: "#059669" },
+  ];
 
   return (
     <div className="recruiter-page admin-page">
@@ -61,6 +96,16 @@ export default function AdminPanel({ user, onSignOut, busy }) {
 
       <div className="admin-toolbar">
         <div className="search-box"><Search size={18} /><input value={queryText} onChange={(e) => setQueryText(e.target.value)} placeholder="Search users by email, name, or role…" aria-label="Search users" /></div>
+      </div>
+
+      <div className="stats-banner">
+        {statTiles.map((tile) => (
+          <div key={tile.label} className="stat-tile">
+            <div className="stat-value">{tile.value}</div>
+            <div className="stat-label">{tile.label}</div>
+            <div className="stat-icon" style={{ color: tile.color }}>{tile.icon}</div>
+          </div>
+        ))}
       </div>
 
       <div className="recruiter-card">
