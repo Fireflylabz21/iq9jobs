@@ -4,22 +4,24 @@ import { useRole } from "../context/RoleContext.jsx";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../backend.js";
 
-export default function JobBuilder({ onBack, onJobCreated }) {
+export default function JobBuilder({ onBack, onJobCreated, jobToEdit }) {
   const { user } = useRole();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [isEditMode, setIsEditMode] = useState(Boolean(jobToEdit));
   const [form, setForm] = useState({
-    jobtitle: "",
-    company: "",
-    compensation: "",
-    experience: "",
-    location: "",
-    region: "",
-    skillsets: "",
-    jobdesc: "",
-    responsibilities: "",
-    isavailable: true,
+    jobid: jobToEdit?.jobid || "",
+    jobtitle: jobToEdit?.jobtitle || "",
+    company: jobToEdit?.company || "",
+    compensation: jobToEdit?.compensation || "",
+    experience: jobToEdit?.experience != null ? String(jobToEdit.experience) : "",
+    location: jobToEdit?.location || "",
+    region: jobToEdit?.region || "",
+    skillsets: jobToEdit?.skillsets || "",
+    jobdesc: jobToEdit?.jobdesc || "",
+    responsibilities: jobToEdit?.responsibilities || "",
+    isavailable: jobToEdit?.isavailable ?? true,
   });
 
   const steps = [
@@ -75,13 +77,11 @@ export default function JobBuilder({ onBack, onJobCreated }) {
       setStep(step + 1);
       return;
     }
-    // Final submit — create job with exact schema
+    // Final submit — create or update job
     setBusy(true);
     setError("");
     try {
-      const jobid = crypto.randomUUID();
-      const job = {
-        jobid,
+      const jobData = {
         jobtitle: form.jobtitle.trim(),
         company: form.company.trim(),
         compensation: form.compensation.trim(),
@@ -92,15 +92,28 @@ export default function JobBuilder({ onBack, onJobCreated }) {
         jobdesc: form.jobdesc.trim(),
         responsibilities: form.responsibilities.trim(),
         isavailable: form.isavailable,
-        jobposted: new Date().toISOString(),
-        recruiterId: user.uid,
-        recruiterEmail: user.email || "",
       };
-      await setDoc(doc(db, "jobs", jobid), job);
-      setError("");
-      if (onJobCreated) onJobCreated(job);
+      if (isEditMode && form.jobid) {
+        // Update existing job in Firestore
+        await setDoc(doc(db, "jobs", form.jobid), { ...jobData, jobposted: new Date().toISOString() }, { merge: true });
+        setError("");
+        if (onJobCreated) onJobCreated({ ...jobData, jobid: form.jobid, jobposted: new Date().toISOString() });
+      } else {
+        // Create new job
+        const jobid = crypto.randomUUID();
+        const job = {
+          jobid,
+          ...jobData,
+          jobposted: new Date().toISOString(),
+          recruiterId: user.uid,
+          recruiterEmail: user.email || "",
+        };
+        await setDoc(doc(db, "jobs", jobid), job);
+        setError("");
+        if (onJobCreated) onJobCreated(job);
+      }
     } catch (err) {
-      setError(err.message || "Could not create the job.");
+      setError(err.message || "Could not save the job.");
     } finally {
       setBusy(false);
     }
@@ -113,9 +126,9 @@ export default function JobBuilder({ onBack, onJobCreated }) {
       <div className="page-heading">
         <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to dashboard</button>
         <div>
-          <div className="eyebrow">STRUCTURED JOB BUILDER</div>
-          <h1>Create a new job</h1>
-          <p>A standardized job requisition. All fields are required.</p>
+          <div className="eyebrow">{isEditMode ? "EDIT JOB" : "STRUCTURED JOB BUILDER"}</div>
+          <h1>{isEditMode ? "Edit job details" : "Create a new job"}</h1>
+          <p>{isEditMode ? "Update the job requisition. Changes are saved to the jobs table." : "A standardized job requisition. All fields are required."}</p>
         </div>
       </div>
 

@@ -11,9 +11,9 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [jobToEdit, setJobToEdit] = useState(null);
   const [activeTab, setActiveTab] = useState(initialTab || "jobs");
   const [applicantLoading, setApplicantLoading] = useState(false);
-  const [selectedJobForReview, setSelectedJobForReview] = useState(null);
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -106,7 +106,7 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
           <h1>Hiring dashboard</h1>
           <p>Post roles, track applications, and review candidates.</p>
         </div>
-        <button className="button button-primary" onClick={() => setShowBuilder(true)} disabled={busy}>
+        <button className="button button-primary" onClick={() => { setJobToEdit(null); setShowBuilder(true); }} disabled={busy}>
           <Plus size={16} /> Post a new role
         </button>
       </div>
@@ -149,7 +149,7 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
                     {(job.skillsets ? job.skillsets.split(",").map((s) => s.trim()).filter(Boolean) : []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
                   </div>
                   <div className="job-card-actions" style={{ marginTop: 16 }}>
-                    <button className="button button-secondary" onClick={() => setShowBuilder(true)}>Edit</button>
+                    <button className="button button-secondary" onClick={() => { setJobToEdit(job); setShowBuilder(true); }}>Edit</button>
                   </div>
                 </article>
               ))}
@@ -289,10 +289,19 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
       )}
 
       {showBuilder && (
-        <JobBuilder onBack={() => setShowBuilder(false)} onJobCreated={(job) => {
-          setShowBuilder(false);
-          setJobs([...jobs, job]);
-        }} />
+        <JobBuilder
+          jobToEdit={jobToEdit}
+          onBack={() => { setJobToEdit(null); setShowBuilder(false); }}
+          onJobCreated={(job) => {
+            setShowBuilder(false);
+            setJobToEdit(null);
+            if (jobToEdit) {
+              // Update existing job in list
+              setJobs(jobs.map((j) => (j.jobid === job.jobid ? job : j)));
+            } else {
+              setJobs([...jobs, job]);
+            }
+          }} />
       )}
     </div>
   );

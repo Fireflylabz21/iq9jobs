@@ -554,11 +554,31 @@ export default function RouterApp() {
     setNotice("Application opened in-app. Your activity is saved.");
     setError("");
     try {
+      // Fetch user's Firestore profile to include full details in application
+      let seekerProfile = {};
+      let agentDetails = {};
+      let displayName = user.displayName || "";
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          const udata = userSnap.data();
+          seekerProfile = udata.seekerProfile || {};
+          agentDetails = udata.agentDetails || {};
+          displayName = udata.displayName || user.displayName || "";
+        }
+      } catch (e) {
+        // ignore profile fetch errors
+      }
       const { error: insertError } = await supabase.from("applications").insert({
         id: crypto.randomUUID(),
         jobId: job.id,
-        seekerId: user.email || user.uid,
+        seekerId: user.uid,
+        seekerEmail: user.email || "",
+        seekerDisplayName: displayName || "",
+        seekerProfile,
+        agentDetails,
         status: "SUBMITTED",
+        appliedAt: new Date().toISOString(),
       });
       if (insertError) throw insertError;
     } catch (insertError) {
