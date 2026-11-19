@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { BriefcaseBusiness, Star, Check, Users, Plus, Settings, LogOut, ArrowRight, MessageCircle, MapPin } from "lucide-react";
+import { BriefcaseBusiness, Star, Check, Users, Plus, Settings, LogOut, ArrowRight, MapPin } from "lucide-react";
 import { useRole } from "../context/RoleContext.jsx";
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { db, supabase } from "../backend.js";
 import JobBuilder from "./JobBuilder.jsx";
-import CandidateReviewQueue from "./CandidateReviewQueue.jsx";
-import ChatPage from "./ChatPage.jsx";
 
 export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }) {
   const { user: currentUser } = useRole();
@@ -14,14 +12,14 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
   const [loading, setLoading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab || "jobs");
-  const [chatOpen, setChatOpen] = useState(null);
-  const [chatJobTitle, setChatJobTitle] = useState("");
   const [applicantLoading, setApplicantLoading] = useState(false);
+  const [selectedJobForReview, setSelectedJobForReview] = useState(null);
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
+  // Load jobs posted by this recruiter from Firestore jobs table
   useEffect(() => {
     if (!currentUser || !db) return;
     setLoading(true);
@@ -66,10 +64,9 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
   }, [currentUser, supabase, jobs]);
 
   const tabs = [
-    { key: "jobs", label: "My Roles", icon: <BriefcaseBusiness size={16} />, count: jobs.length },
+    { key: "jobs", label: "Jobs posted", icon: <BriefcaseBusiness size={16} />, count: jobs.length },
     { key: "applicants", label: "Applicants", icon: <Users size={16} />, count: applicants.length },
     { key: "review", label: "Review Candidates", icon: <Check size={16} />, count: 0 },
-    { key: "messages", label: "Messages", icon: <MessageCircle size={16} />, count: 0 },
   ];
 
   const getApplicantName = (app) => {
@@ -80,13 +77,34 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
 
   const getApplicantEmail = (app) => app.seekerEmail || app.seekerId || "—";
 
+  // Calculate skill match score between candidate profile skills and job required skills
+  const calculateMatchScore = (candidateSkills, jobSkills) => {
+    if (!candidateSkills || candidateSkills.length === 0) return 0;
+    if (!jobSkills || jobSkills.length === 0) return 0;
+    const candidateSet = new Set(candidateSkills.map((s) => s.toLowerCase().trim()));
+    const matched = jobSkills.filter((s) => candidateSet.has(s.toLowerCase().trim())).length;
+    return Math.round((matched / jobSkills.length) * 100);
+  };
+
+  // Group applicants by job with match scores
+  const applicantsByJob = jobs.map((job) => {
+    const jobApps = applicants.filter((a) => a.jobId === job.id);
+    const scoredApps = jobApps.map((app) => {
+      const candidateSkills = app.seekerProfile?.topSkills || [];
+      const jobSkills = job.required_skills || [];
+      const score = calculateMatchScore(candidateSkills, jobSkills);
+      return { ...app, matchScore: score };
+    }).sort((a, b) => b.matchScore - a.matchScore);
+    return { job, applicants: scoredApps };
+  }).filter((j) => j.applicants.length > 0);
+
   return (
     <div className="recruiter-page">
       <div className="page-heading">
         <div>
           <div className="eyebrow">RECRUITER WORKSPACE</div>
           <h1>Hiring dashboard</h1>
-          <p>Post roles, review candidates, and manage your hiring pipeline.</p>
+          <p>Post roles, track applications, and review candidates.</p>
         </div>
         <button className="button button-primary" onClick={() => setShowBuilder(true)} disabled={busy}>
           <Plus size={16} /> Post a new role
@@ -105,15 +123,15 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
         ))}
       </div>
 
-      {/* Posted Jobs */}
+      {/* Jobs posted */}
       {activeTab === "jobs" && (
         <div className="recruiter-card">
           {loading ? (
-            <div className="jobs-loading"><div className="loading-spinner" /> Loading roles…</div>
+            <div className="jobs-loading"><div className="loading-spinner" /> Loading jobs…</div>
           ) : jobs.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><BriefcaseBusiness size={25} /></div>
-              <h2>No roles posted yet</h2>
+              <h2>No jobs posted yet</h2>
               <p>Post your first structured role to start receiving candidates.</p>
             </div>
           ) : (
@@ -140,14 +158,14 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
         </div>
       )}
 
-      {/* Applicants - users who applied to recruiter's jobs */}
+      {/* Applicants - all applications across recruiter's jobs */}
       {activeTab === "applicants" && (
         <div className="recruiter-card">
           <button className="back-link" onClick={() => setActiveTab("jobs")}><ArrowLeft size={16} /> Back to dashboard</button>
           <div className="page-heading">
             <div>
               <div className="eyebrow">APPLICATION DETAILS</div>
-              <h1>Applicants</h1>
+              <h1>All Applicants</h1>
               <p>View candidates who applied to your posted roles.</p>
             </div>
           </div>
@@ -169,7 +187,6 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
                     <th>Role Applied</th>
                     <th>Status</th>
                     <th>Applied At</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -185,13 +202,6 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
                       <td>{app.jobTitle}</td>
                       <td><span className={`role-badge role-${(app.status || "submitted").toLowerCase()}`}>{(app.status || "Submitted").charAt(0).toUpperCase() + (app.status || "submitted").slice(1)}</span></td>
                       <td>{app.created_at ? new Date(app.created_at).toLocaleDateString() : "—"}</td>
-                      <td>
-                        <button className="button button-secondary" onClick={() => {
-                          setChatOpen(app.seekerId || app.seekerEmail);
-                          setChatJobTitle(app.jobTitle);
-                          setActiveTab("messages");
-                        }}><MessageCircle size={14} /> Message</button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -201,33 +211,78 @@ export default function RecruiterDashboard({ user, onSignOut, busy, initialTab }
         </div>
       )}
 
-      {activeTab === "review" && <CandidateReviewQueue onBack={() => setActiveTab("jobs")} />}
-
-      {activeTab === "messages" && (
+      {/* Review Candidates - job-wise with skill match scores */}
+      {activeTab === "review" && (
         <div className="recruiter-page">
-          <button className="back-link" onClick={() => setActiveTab("applicants")}><ArrowLeft size={16} /> Back to applicants</button>
-          {chatOpen && (
-            <ChatPage
-              user={currentUser}
-              otherUserId={chatOpen}
-              jobTitle={chatJobTitle}
-              onBack={() => setChatOpen(null)}
-            />
-          )}
-          {!chatOpen && (
-            <div className="recruiter-card">
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">MESSAGES</div>
-                  <h1>Direct chat</h1>
-                  <p>Message candidates you have shortlisted or who applied to your roles.</p>
-                </div>
-              </div>
-              <div className="empty-state">
-                <div className="empty-icon"><MessageCircle size={25} /></div>
-                <h2>No active conversation</h2>
-                <p>Select a candidate from Applicants to start messaging.</p>
-              </div>
+          <button className="back-link" onClick={() => setActiveTab("jobs")}><ArrowLeft size={16} /> Back to dashboard</button>
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">CANDIDATE REVIEW — SKILL MATCHING</div>
+              <h1>Review by Job</h1>
+              <p>Candidates ranked by skill match score for each posted role.</p>
+            </div>
+          </div>
+          {applicantLoading ? (
+            <div className="jobs-loading"><div className="loading-spinner" /> Loading reviews…</div>
+          ) : applicantsByJob.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><Check size={25} /></div>
+              <h2>No applications to review</h2>
+              <p>Candidates who apply to your posted roles will appear here with match scores.</p>
+            </div>
+          ) : (
+            <div className="review-by-job">
+              {applicantsByJob.map(({ job, applicants: jobApplicants }) => (
+                <article key={job.id} className="review-job-card">
+                  <div className="review-job-header">
+                    <h3>{job.title}</h3>
+                    <span className="tag tag-mode">{job.work_style}</span>
+                  </div>
+                  <div className="skill-list" style={{ marginBottom: 12 }}>
+                    {(job.required_skills || []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
+                  </div>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Candidate</th>
+                          <th>Email</th>
+                          <th>Match Score</th>
+                          <th>Candidate Skills</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobApplicants.map((app) => {
+                          const candidateSkills = app.seekerProfile?.topSkills || [];
+                          return (
+                            <tr key={app.id}>
+                              <td>
+                                <div className="admin-user-cell">
+                                  <div className="avatar admin-avatar">{getApplicantName(app).charAt(0).toUpperCase()}</div>
+                                  <div>{getApplicantName(app)}</div>
+                                </div>
+                              </td>
+                              <td>{getApplicantEmail(app)}</td>
+                              <td>
+                                <span className={`match-score match-${app.matchScore >= 70 ? "high" : app.matchScore >= 40 ? "med" : "low"}`}>
+                                  {app.matchScore}%
+                                </span>
+                              </td>
+                              <td>
+                                <div className="skill-list" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {candidateSkills.slice(0, 4).map((s) => <span key={s} className="skill-tag" style={{ fontSize: 11, padding: "2px 8px" }}>{s}</span>)}
+                                </div>
+                              </td>
+                              <td><span className={`role-badge role-${(app.status || "submitted").toLowerCase()}`}>{(app.status || "Submitted").charAt(0).toUpperCase() + (app.status || "submitted").slice(1)}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </div>

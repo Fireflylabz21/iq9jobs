@@ -457,6 +457,17 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .role-recruiter { background: #1b2b4a; color: #7bcfff; border: 1px solid #295d8c; }
 .role-admin { background: #3b1b3b; color: #fb7185; border: 1px solid #783b4a; }
 
+/* Match score badges */
+.match-score { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; color: white; }
+.match-high { background: #059669; }
+.match-med { background: #d97706; }
+.match-low { background: #b91c1c; }
+
+/* Review by job card */
+.review-job-card { padding: 20px; border: 1px solid #222f44; border-radius: 12px; background: linear-gradient(145deg, #111a2a, #0d1420); margin-bottom: 16px; }
+.review-job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.review-job-header h3 { margin: 0; font-size: 16px; color: #eef2ff; }
+
 /* Admin stats banner */
 .stats-banner { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .stat-tile { padding: 20px; border: 1px solid #222f44; border-radius: 12px; background: linear-gradient(145deg, #111a2a, #0d1420); position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }

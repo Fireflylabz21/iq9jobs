@@ -33,7 +33,6 @@ import {
   LogOut,
   MapPin,
   Menu,
-  MessageCircle,
   Search,
   Settings,
   ShieldCheck,
@@ -797,7 +796,7 @@ export default function RouterApp() {
                     setMobileMenuOpen(false);
                   }}
                 >
-                  My Roles
+                  Jobs posted
                 </NavButton>
                 <NavButton
                   active={screen === "review"}
@@ -808,16 +807,6 @@ export default function RouterApp() {
                   }}
                 >
                   Review Candidates
-                </NavButton>
-                <NavButton
-                  active={screen === "messages"}
-                  icon={<MessageCircle size={18} />}
-                  onClick={() => {
-                    setScreen("messages");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  Messages
                 </NavButton>
               </>
             )}
