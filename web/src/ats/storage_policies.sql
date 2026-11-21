@@ -1,4 +1,18 @@
 -- ============================================================
+-- Storage: private "resumes" bucket creation
+-- ============================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'resumes',
+  'resumes',
+  false,
+  10485760,
+  ARRAY['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+)
+on conflict (id) do nothing;
+
+-- ============================================================
 -- Row-Level Security (RLS) Policies
 -- ============================================================
 

@@ -731,6 +731,9 @@ export default function RouterApp() {
                   : "IMMEDIATE",
                 topSkills: skills.slice(0, 6),
                 expectedLocation: agentDetails.expectedLocation,
+                resumePath: details.resumePath || null,
+                parsedResumeText: details.parsedResumeText || "",
+                rawSkills: Array.isArray(details.rawSkills) ? details.rawSkills : [],
               };
               await setDoc(
                 doc(db, "users", user.uid),

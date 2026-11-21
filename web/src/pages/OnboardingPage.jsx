@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, UserRound, Paperclip } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import { db, supabase } from "../backend.js";
+import { ResumeParser } from "../ats/ResumeParser.jsx";
 
 export default function OnboardingPage({ user, busy, error, onSubmit }) {
   const [step, setStep] = useState(0);
@@ -16,7 +17,14 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
     currentLocation: "",
     expectedLocation: "",
     noticePeriod: "IMMEDIATE",
+    resumePath: null,
+    parsedResumeText: "",
+    rawSkills: [],
   });
+  const [resumeFile, setResumeFile] = useState(null);
+  const [resumeParsed, setResumeParsed] = useState(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+
   const steps = [
     { key: "fullName", label: "What should we call you?", hint: "Your full name", type: "text" },
     { key: "phoneNumber", label: "How can we reach you?", hint: "Phone number", type: "tel" },
@@ -27,6 +35,8 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
     { key: "currentLocation", label: "Where are you based?", hint: "Current city", type: "text" },
     { key: "expectedLocation", label: "Where would you like to work?", hint: "Preferred city or Remote", type: "text" },
   ];
+  const resumeStepIndex = steps.length;
+  const totalDataSteps = steps.length + 1;
   const noticeOptions = [
     ["IMMEDIATE", "Immediate"],
     ["LESS_THAN_15_DAYS", "< 15 days"],
@@ -34,9 +44,53 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
     ["SIXTY_PLUS_DAYS", "60+ days"],
   ];
   const current = steps[step];
+  const isResumeStep = step === resumeStepIndex;
   const update = (key, value) => setForm((previous) => ({ ...previous, [key]: value }));
 
   const noticeLabel = (value) => noticeOptions.find(([key]) => key === value)?.[1] || value;
+
+  const handleResumeParsed = (parsed) => {
+    setResumeParsed(parsed);
+    setForm((prev) => ({
+      ...prev,
+      parsedResumeText: parsed.rawText,
+      rawSkills: parsed.skills,
+    }));
+  };
+
+  const handleResumeFileChange = (file) => {
+    setResumeFile(file);
+    if (!file) {
+      setResumeParsed(null);
+      setForm((prev) => ({ ...prev, parsedResumeText: "", rawSkills: [] }));
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    let uploadError = null;
+    if (resumeFile && supabase) {
+      setResumeUploading(true);
+      try {
+        const fileName = `resumes/${user.uid}/${Date.now()}_${resumeFile.name}`;
+        const { error: err } = await supabase.storage.from("resumes").upload(fileName, resumeFile);
+        if (err) throw err;
+        setForm((prev) => ({ ...prev, resumePath: fileName }));
+      } catch (err) {
+        uploadError = err.message || "Resume upload failed";
+      } finally {
+        setResumeUploading(false);
+      }
+    }
+
+    if (uploadError) {
+      setError(uploadError);
+      return;
+    }
+
+    onSubmit(form);
+  };
 
   return (
     <div className="onboarding-page">
@@ -46,11 +100,12 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
       </header>
       <div className="onboarding-card">
         <div className="onboarding-progress">
-          <div className="progress-copy"><span>YOUR CANDIDATE PROFILE</span><span>{review ? "Review" : `${step + 1} of ${steps.length + 1}`}</span></div>
-          <div className="progress-track"><span style={{ width: `${review ? 100 : ((step + 1) / (steps.length + 1)) * 100}%` }} /></div>
+          <div className="progress-copy"><span>YOUR CANDIDATE PROFILE</span><span>{review ? "Review" : `${Math.min(step + 1, totalDataSteps + 1)} of ${totalDataSteps + 1}`}</span></div>
+          <div className="progress-track"><span style={{ width: `${review ? 100 : ((Math.min(step + 1, totalDataSteps + 1)) / (totalDataSteps + 1)) * 100}%` }} /></div>
         </div>
+
         {review ? (
-          <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+          <form onSubmit={handleSubmit}>
             <div className="onboarding-eyebrow"><Sparkles size={15} /> PROFILE SUMMARY</div>
             <h1>Looking good, {form.fullName.split(" ")[0] || "there"}.</h1>
             <p className="muted-copy">Review your details before we create your profile.</p>
@@ -66,18 +121,48 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
                 ["Current location", form.currentLocation],
                 ["Preferred location", form.expectedLocation],
                 ["Notice period", noticeLabel(form.noticePeriod)],
+                ["Resume", form.resumePath || resumeParsed ? "Uploaded & parsed" : "Not uploaded"],
               ].map(([label, value]) => (
                 <div className="review-item" key={label}><span>{label}</span><strong>{value || "Not provided"}</strong></div>
               ))}
+              {resumeParsed && (
+                <div className="review-item"><span>Parsed skills</span><strong>{resumeParsed.skills.join(", ") || "None detected"}</strong></div>
+              )}
             </div>
             {error && <div className="alert alert-error" role="alert">{error}</div>}
             <div className="onboarding-actions">
-              <button type="button" className="button button-secondary" onClick={() => setReview(false)} disabled={busy}><ArrowLeft size={16} /> Edit details</button>
-              <button className="button button-primary" disabled={busy}>{busy ? "Saving profile…" : "Confirm & continue"} <ArrowRight size={17} /></button>
+              <button type="button" className="button button-secondary" onClick={() => setReview(false)} disabled={busy || resumeUploading}><ArrowLeft size={16} /> Edit details</button>
+              <button className="button button-primary" disabled={busy || resumeUploading}>{busy || resumeUploading ? "Saving profile…" : "Confirm & continue"} <ArrowRight size={17} /></button>
             </div>
           </form>
+        ) : isResumeStep ? (
+          <div className="onboarding-field">
+            <div className="onboarding-eyebrow"><Paperclip size={18} /> RESUME UPLOAD</div>
+            <h1>Upload your resume (optional)</h1>
+            <p className="muted-copy">We’ll extract your skills and contact details automatically. Everything is parsed in your browser — your file is never sent to a server for parsing.</p>
+            <div className="resume-upload-step">
+              <ResumeParser
+                onParsed={handleResumeParsed}
+                jobSkills={form.primarySkillsets ? form.primarySkillsets.split(",").map((s) => s.trim()).filter(Boolean) : []}
+                className="resume-parser-inline"
+              />
+              {resumeFile && (
+                <div className="file-selected">
+                  <Paperclip size={16} /> {resumeFile.name} ({Math.round(resumeFile.size / 1024)} KB)
+                </div>
+              )}
+              {resumeUploading && <span className="parsing">Uploading resume…</span>}
+            </div>
+            {error && <div className="alert alert-error" role="alert">{error}</div>}
+            <div className="onboarding-actions">
+              <button type="button" className="button button-secondary" onClick={() => setStep(step - 1)} disabled={busy || resumeUploading}><ArrowLeft size={16} /> Back</button>
+              <button className="button button-primary" disabled={busy || resumeUploading}>{step === totalDataSteps ? "Review profile" : "Continue"} <ArrowRight size={17} /></button>
+              <button type="button" className="button button-secondary" onClick={() => setStep(totalDataSteps)} style={{ marginLeft: 10, background: "transparent", color: "#8da0ba", border: "1px solid #2b3952" }}>Skip resume</button>
+            </div>
+            <div className="onboarding-footnote"><ShieldCheck size={15} /> Your resume is stored privately and only shared with recruiters you apply to.</div>
+          </div>
         ) : (
-          <form onSubmit={(event) => { event.preventDefault(); if (step < steps.length - 1) setStep(step + 1); else setReview(true); }}>
+          <form onSubmit={(event) => { event.preventDefault(); if (step < steps.length - 1) setStep(step + 1); else setStep(resumeStepIndex); }}>
             <div className="onboarding-eyebrow"><span className="agent-dot">iq</span> YOUR IQ9 AGENT</div>
             <h1>{step === 0 ? `Hi${form.fullName ? `, ${form.fullName.split(" ")[0]}` : ""}. Let's get to know you.` : current.label}</h1>
             <p className="muted-copy">{step === 0 ? current.label : "A few details help us find opportunities that fit."}</p>
@@ -100,8 +185,8 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
             )}
             {error && <div className="alert alert-error" role="alert">{error}</div>}
             <div className="onboarding-actions">
-              {step > 0 && <button type="button" className="button button-secondary" onClick={() => setStep(step - 1)}><ArrowLeft size={16} /> Back</button>}
-              <button className="button button-primary" disabled={busy}>{step === steps.length - 1 ? "Review profile" : "Continue"} <ArrowRight size={17} /></button>
+              {step > 0 && <button type="button" className="button button-secondary" onClick={() => setStep(step - 1)} disabled={busy}><ArrowLeft size={16} /> Back</button>}
+              <button className="button button-primary" disabled={busy}>{step === steps.length - 1 ? "Continue to resume" : "Continue"} <ArrowRight size={17} /></button>
             </div>
             <div className="onboarding-footnote"><ShieldCheck size={15} /> Your information is private and securely stored.</div>
           </form>

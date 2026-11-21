@@ -529,3 +529,9 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .parser-list { margin: 6px 0 0; padding-left: 18px; color: #c5cede; font-size: 13px; line-height: 1.6; }
 .parser-list li { margin-bottom: 4px; }
 .raw-text-preview { width: 100%; min-height: 120px; padding: 10px; border: 1px solid #202d42; border-radius: 10px; background: #0a101b; color: #8da0ba; font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace; resize: vertical; }
+
+/* Onboarding resume upload step */
+.resume-upload-step { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.resume-parser-inline { margin: 0; }
+.file-selected { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #0a101b; border: 1px solid #202d42; font-size: 12px; color: #c5cede; }
+
