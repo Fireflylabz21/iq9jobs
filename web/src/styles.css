@@ -256,6 +256,9 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .filter-clear:hover { color: #fb7185; border-color: #783b4a; }
 
 .tag-match { background: linear-gradient(135deg, #1e3a4a, #142936); color: #69bde9; border: 1px solid #2b5a73; }
+.tag-match-high { background: linear-gradient(135deg, #0b5f3a, #073d22); color: #4ade80; border: 1px solid #16a34a; }
+.tag-match-med { background: linear-gradient(135deg, #451a03, #7c2d12); color: #fbbf24; border: 1px solid #d97706; }
+.tag-match-low { background: linear-gradient(135deg, #3f0707, #540d0d); color: #fca5a5; border: 1px solid #dc2626; }
 .job-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .job-card { min-width: 0; display: flex; flex-direction: column; padding: 19px; border: 1px solid #202d42; border-radius: 14px; background: linear-gradient(150deg, #111a2b, #0c1320); box-shadow: 0 12px 28px #0002; animation: card-enter .28s both; animation-delay: calc(var(--card-index, 0) * 35ms); }
 @keyframes card-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

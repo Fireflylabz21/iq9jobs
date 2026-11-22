@@ -1164,7 +1164,7 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
         {workMode !== "unspecified" && <span className="tag tag-mode">{job.workMode}</span>}
         {job.external && <span className="tag tag-external">External</span>}
         {experienceRange(job) && <span className="tag">{experienceRange(job)}</span>}
-        {job.matchScore > 0 && <span className="tag tag-match">{job.matchScore}% match</span>}
+        {job.matchScore > 0 && <span className={`tag tag-match ${job.matchScore > 50 ? "tag-match-high" : job.matchScore >= 30 ? "tag-match-med" : "tag-match-low"}`}>{job.matchScore}% match</span>}
       </div>
       {moneyRange(job) && (
         <div className="salary-line"><span>{moneyRange(job)}</span><span className="salary-caption">annual compensation</span></div>
