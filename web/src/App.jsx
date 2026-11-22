@@ -95,7 +95,7 @@ function saveList(name, value, user) {
 }
 
 function moneyRange(job) {
-  if (!job.compensation) return "Compensation not listed";
+  if (!job.compensation) return null;
   return job.compensation;
 }
 
@@ -457,7 +457,7 @@ export default function RouterApp() {
       try {
         const snapshot = await getDoc(doc(db, "users", user.uid));
         const data = snapshot.exists() ? snapshot.data() : {};
-        setProfile({ ...emptyProfile, ...(data.seekerProfile || {}) });
+        setProfile({ ...emptyProfile, ...(data.seekerProfile || {}), topSkills: Array.isArray(data.seekerProfile?.topSkills) ? data.seekerProfile.topSkills : (Array.isArray(data.agentDetails?.primarySkillsets) ? data.agentDetails.primarySkillsets : []) });
         setOnboardingComplete(
           data.onboardingCompleted === true ||
             Boolean(data.agentDetails) ||
@@ -585,7 +585,7 @@ export default function RouterApp() {
     return () => {
       active = false;
     };
-  }, [user, profile.topSkills, profile.targetTitle, profile.expectedLocation, role]);
+  }, [user, profile.topSkills, profile.targetTitle, profile.expectedLocation, role, profile]);
 
   const matchingJobs = useMemo(() => {
     if (!jobs.length) return 0;
@@ -1166,7 +1166,9 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
         {experienceRange(job) && <span className="tag">{experienceRange(job)}</span>}
         {job.matchScore > 0 && <span className="tag tag-match">{job.matchScore}% match</span>}
       </div>
-      <div className="salary-line"><span>{moneyRange(job)}</span><span className="salary-caption">annual compensation</span></div>
+      {moneyRange(job) && (
+        <div className="salary-line"><span>{moneyRange(job)}</span><span className="salary-caption">annual compensation</span></div>
+      )}
       <div className="job-description">
         <div className="section-label">THE ROLE</div>
         <p>{job.teamObjective || "More details will be shared by the hiring team."}</p>
@@ -1224,7 +1226,7 @@ function ApplicationKanban({ appliedIds, jobs }) {
                     <div className="company-location"><MapPin size={12} /> {job.location}</div>
                   </div>
                   <h3>{job.title}</h3>
-                  <div className="salary-line"><span>{moneyRange(job)}</span></div>
+                  {moneyRange(job) && <div className="salary-line"><span>{moneyRange(job)}</span></div>}
                   <span className="tag">Submitted</span>
                 </article>
               ))}
@@ -1277,7 +1279,7 @@ function JobDetailsModal({ job, saved, applied, onClose, onSave, onSkip, onApply
           {experienceRange(job) && <span className="tag">{experienceRange(job)}</span>}
         </div>
         <div className="details-facts">
-          <div><span>Compensation</span><strong>{moneyRange(job)}</strong></div>
+          {moneyRange(job) && <div><span>Compensation</span><strong>{moneyRange(job)}</strong></div>}
           <div><span>Work style</span><strong>{job.workMode}</strong></div>
           <div><span>Posted</span><strong>{job.postedAt ? new Date(job.postedAt).toLocaleDateString() : "Not specified"}</strong></div>
         </div>
