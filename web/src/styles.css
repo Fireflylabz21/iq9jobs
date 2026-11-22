@@ -192,6 +192,17 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .profile-chip-copy strong { overflow: hidden; color: #e0e6f0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-chip-copy span { overflow: hidden; color: #78869c; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-chip .icon-button:hover { color: var(--red); }
+
+/* Sidebar profile stats */
+.sidebar-stats { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 18px 0 24px; padding: 0 8px; }
+.sidebar-stat { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #202b3c; border-radius: 10px; background: linear-gradient(145deg, #0f1724, #0a101b); }
+.sidebar-stat-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #69748c; text-transform: uppercase; }
+.sidebar-stat-value { font-size: 16px; font-weight: 800; color: #e0e6f0; letter-spacing: -.02em; }
+
+/* Topbar center items */
+.topbar-center { display: flex; align-items: center; gap: 12px; }
+.topbar-search, .topbar-settings { width: 36px; height: 36px; border-radius: 9px; border: 1px solid #27344a; background: #0e1522; color: #8592a7; cursor: pointer; display: grid; place-items: center; transition: .15s ease; }
+.topbar-search:hover, .topbar-settings:hover { border-color: #438eea; color: #7bcfff; background: #121b2c; }
 .main-panel { width: calc(100% - 246px); min-height: 100vh; margin-left: 246px; }
 .topbar { position: sticky; z-index: 4; top: 0; height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(22px, 4vw, 58px); border-bottom: 1px solid #1b2535; background: #080d17eF; backdrop-filter: blur(14px); }
 .breadcrumb { display: flex; align-items: center; gap: 9px; color: #e1e7f2; font-size: 11px; font-weight: 600; }

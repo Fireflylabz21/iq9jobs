@@ -574,6 +574,20 @@ export default function RouterApp() {
     };
   }, [user, profile.topSkills, profile.targetTitle, profile.expectedLocation, role]);
 
+  const matchingJobs = useMemo(() => {
+    if (!jobs.length) return 0;
+    const profileSkills = profile.topSkills || [];
+    const targetTitle = profile.targetTitle || "";
+    const expectedLocation = profile.expectedLocation || "";
+    const hasPrefs = profileSkills.length > 0 || Boolean(targetTitle) || Boolean(expectedLocation);
+    if (!hasPrefs) return jobs.length;
+    return jobs.filter((job) => {
+      const skillMatch = skillsOverlap(job.coreSkills, profileSkills);
+      const titleMatch = titleMatches(job.title, targetTitle);
+      const locationMatch = sameLocation(job.location, expectedLocation) || sameLocation(job.region, expectedLocation);
+      return skillMatch || titleMatch || locationMatch;
+    }).length;
+  }, [jobs, profile.topSkills, profile.targetTitle, profile.expectedLocation]);
   const visibleJobs = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return jobs.filter((job) => {
@@ -824,6 +838,27 @@ export default function RouterApp() {
         <aside className={`sidebar ${mobileMenuOpen ? "sidebar-open" : ""}`}>
           <Brand />
           <div className="sidebar-label">WORKSPACE</div>
+
+          {/* Profile stats card */}
+          <div className="sidebar-stats">
+            <div className="sidebar-stat">
+              <div className="sidebar-stat-label">Profile</div>
+              <div className="sidebar-stat-value">{user.displayName || user.email || "Candidate"}</div>
+            </div>
+            <div className="sidebar-stat">
+              <div className="sidebar-stat-label">Matching Jobs</div>
+              <div className="sidebar-stat-value">{matchingJobs}</div>
+            </div>
+            <div className="sidebar-stat">
+              <div className="sidebar-stat-label">Applied</div>
+              <div className="sidebar-stat-value">{appliedIds.length}</div>
+            </div>
+            <div className="sidebar-stat">
+              <div className="sidebar-stat-label">Saved</div>
+              <div className="sidebar-stat-value">{savedIds.length}</div>
+            </div>
+          </div>
+
           <nav className="side-nav" aria-label="Main navigation">
             {role === ROLES.ADMIN && (
               <>
@@ -957,6 +992,14 @@ export default function RouterApp() {
             >
               <Menu size={20} />
             </button>
+            <div className="topbar-center">
+              <button className="icon-button topbar-search" aria-label="Search jobs" title="Search">
+                <Search size={18} />
+              </button>
+              <button className="icon-button topbar-settings" aria-label="Settings" title="Settings" onClick={() => setScreen("settings")}>
+                <Settings size={18} />
+              </button>
+            </div>
           </header>
 
           <div className="content-area">
