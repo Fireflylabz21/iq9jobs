@@ -189,7 +189,6 @@ function Brand() {
   return (
     <a className="brand" href="#" aria-label="Devait Jobs home">
       <span className="brand-mark">Devait<span>Jobs</span></span>
-      <span className="brand-name">jobs<span>.</span></span>
     </a>
   );
 }
@@ -1011,24 +1010,6 @@ export default function RouterApp() {
         </aside>
 
         <main className="main-panel">
-          <header className="topbar">
-            <button
-              className="icon-button mobile-menu-button"
-              aria-label="Open navigation"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu size={20} />
-            </button>
-            <div className="topbar-center">
-              <button className="icon-button topbar-search" aria-label="Search jobs" title="Search">
-                <Search size={18} />
-              </button>
-              <button className="icon-button topbar-settings" aria-label="Settings" title="Settings" onClick={() => setScreen("settings")}>
-                <Settings size={18} />
-              </button>
-            </div>
-          </header>
-
           <div className="content-area">
             {error && <Alert type="error">{error}</Alert>}
             {notice && <Alert type="success">{notice}</Alert>}

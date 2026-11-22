@@ -3,7 +3,14 @@ import {
   getAuth,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  collection,
+  addDoc,
+  serverTimestamp,
+  getFirestore,
+} from "firebase/firestore";
 import { createClient } from "@supabase/supabase-js";
 
 const firebaseConfig = {
@@ -31,3 +38,40 @@ export const supabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabase = supabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+// ============================================================
+// Firestore helpers — Devait Jobs web app
+// ============================================================
+
+/**
+ * Create or update a user document (doc ID matches Auth UID).
+ * @param {Object} userData - fields to write into users/{uid}
+ */
+export const createUser = async (userData) => {
+  if (!db) throw new Error("Firestore is not configured.");
+  const userRef = doc(db, "users", userData.uid);
+  await setDoc(
+    userRef,
+    {
+      ...userData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return userRef;
+};
+
+/**
+ * Create a job document (auto-generates jobId).
+ * @param {Object} jobData - fields to write into jobs collection
+ */
+export const createJob = async (jobData) => {
+  if (!db) throw new Error("Firestore is not configured.");
+  const jobRef = await addDoc(collection(db, "jobs"), {
+    ...jobData,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return jobRef;
+};
