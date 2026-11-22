@@ -4,7 +4,13 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import mammoth from "mammoth";
 
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+  } catch (e) {
+    // Fallback to CDN worker if local worker fails
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.js";
+  }
 }
 
 const DEFAULT_SKILL_DICTIONARY = [
@@ -114,7 +120,12 @@ export function ResumeParser({ onParsed, jobSkills = [], dictionary = DEFAULT_SK
       setEditableContact({ ...parsedResume.contact });
       onParsed(parsedResume);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to parse resume.");
+      const msg = err instanceof Error ? err.message : "Failed to parse resume.";
+      if (msg.includes("offline") || msg.includes("Failed to fetch")) {
+        setError("Resume parser failed to load. Please check your internet connection and try again.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setParsing(false);
     }

@@ -194,9 +194,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .profile-chip .icon-button:hover { color: var(--red); }
 
 /* Hide sidebar during onboarding */
-.onboarding-page.onboarding-full ~ .main-panel,
-.onboarding-page.onboarding-full + .sidebar { display: none !important; }
-.onboarding-page.onboarding-full ~ .main-panel { margin-left: 0 !important; width: 100% !important; }
+.app-shell.onboarding-active .sidebar { display: none !important; }
+.app-shell.onboarding-active .main-panel { margin-left: 0 !important; width: 100% !important; }
 
 /* Onboarding full page layout */
 .onboarding-page.onboarding-full { min-height: 100vh; display: flex; flex-direction: column; }

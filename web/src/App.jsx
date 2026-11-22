@@ -855,7 +855,7 @@ export default function RouterApp() {
   }, [role, screen, user, profile, busy, onboardingComplete, jobs, visibleJobs, loadingJobs, query, savedIds, appliedIds, skippedIds, selectedJob]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${role === ROLES.SEEKER && !onboardingComplete ? "onboarding-active" : ""}`}>
         <aside className={`sidebar ${mobileMenuOpen ? "sidebar-open" : ""}`}>
           <Brand />
           <div className="sidebar-label">WORKSPACE</div>
