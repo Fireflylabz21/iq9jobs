@@ -246,6 +246,16 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .search-box input::placeholder { color: #718098; }
 .toolbar-note { display: flex; align-items: center; gap: 7px; color: #8290a7; font-size: 10px; }
 .toolbar-note svg { color: #a394ff; }
+
+/* Filter chips */
+.filter-chips { display: flex; align-items: center; gap: 8px; }
+.filter-select { padding: 6px 10px; border: 1px solid #27344a; border-radius: 8px; background: #0e1522; color: #c5cede; font-size: 12px; cursor: pointer; }
+.filter-select:hover { border-color: #438eea; }
+.filter-select option { background: #0e1522; color: #c5cede; }
+.filter-clear { padding: 6px 12px; border: 1px solid #27344a; border-radius: 8px; background: transparent; color: #8592a7; font-size: 11px; font-weight: 600; cursor: pointer; }
+.filter-clear:hover { color: #fb7185; border-color: #783b4a; }
+
+.tag-match { background: linear-gradient(135deg, #1e3a4a, #142936); color: #69bde9; border: 1px solid #2b5a73; }
 .job-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .job-card { min-width: 0; display: flex; flex-direction: column; padding: 19px; border: 1px solid #202d42; border-radius: 14px; background: linear-gradient(150deg, #111a2b, #0c1320); box-shadow: 0 12px 28px #0002; animation: card-enter .28s both; animation-delay: calc(var(--card-index, 0) * 35ms); }
 @keyframes card-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

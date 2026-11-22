@@ -162,6 +162,15 @@ function titleMatches(jobTitle, targetTitle) {
   return jobTitle.toLowerCase().includes(targetTitle.toLowerCase());
 }
 
+function computeJobMatchScore(job, profileSkills, targetTitle, expectedLocation) {
+  if (!profileSkills || profileSkills.length === 0) return 0;
+  const jobSkills = (job.coreSkills || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean);
+  const profileSet = new Set(profileSkills.map((s) => String(s).toLowerCase().trim()));
+  const matched = jobSkills.filter((s) => profileSet.has(s)).length;
+  const skillPct = jobSkills.length === 0 ? 0 : Math.round((matched / jobSkills.length) * 100);
+  return skillPct;
+}
+
 function screenTitle(screen) {
   if (screen === "saved") return "Saved jobs";
   if (screen === "applied") return "Applied jobs";
@@ -434,6 +443,8 @@ export default function RouterApp() {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [matchSource, setMatchSource] = useState("none");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [filterExperience, setFilterExperience] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
 
   // Load seeker profile + onboarding status
   useEffect(() => {
@@ -560,7 +571,10 @@ export default function RouterApp() {
         source = "all";
       }
 
-      setJobs(matched);
+      setJobs(matched.map((job) => ({
+        ...job,
+        matchScore: computeJobMatchScore(job, profileSkills, targetTitle, expectedLocation),
+      })));
       setMatchSource(source);
       setError("");
     }).catch((fetchError) => {
@@ -851,6 +865,8 @@ export default function RouterApp() {
         onQueryChange={setQuery}
         savedIds={savedIds}
         appliedIds={appliedIds}
+        filterExperience={filterExperience}
+        filterLocation={filterLocation}
         onSave={toggleSaved}
         onSkip={skipJob}
         onApply={recordApplication}
@@ -1048,7 +1064,7 @@ export default function RouterApp() {
 
 // --- Seeker sub-components ---
 
-function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, onSave, onSkip, onApply, onDetails }) {
+function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, filterExperience, filterLocation, onSave, onSkip, onApply, onDetails }) {
   const emptyTitle = screen === "saved" ? "Nothing saved yet" : screen === "applied" ? "No applications yet" : "No roles found";
   const emptyText = screen === "saved"
     ? "Save roles that catch your eye and find them here."
@@ -1067,6 +1083,22 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
       </div>
       <div className="job-toolbar">
         <div className="search-box"><Search size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Search role, company, skill…" aria-label="Search jobs" /></div>
+        <div className="filter-chips">
+          <select value={filterExperience} onChange={(e) => setFilterExperience(e.target.value)} className="filter-select">
+            <option value="">Experience</option>
+            <option value="0-2">0–2 years</option>
+            <option value="3-5">3–5 years</option>
+            <option value="6-10">6–10 years</option>
+            <option value="10plus">10+ years</option>
+          </select>
+          <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="filter-select">
+            <option value="">Location</option>
+            <option value="Remote">Remote</option>
+            <option value="Hybrid">Hybrid</option>
+            <option value="Onsite">Onsite</option>
+          </select>
+          <button className="filter-clear" onClick={() => { setFilterExperience(""); setFilterLocation(""); }}>Clear filters</button>
+        </div>
         <div className="toolbar-note"><Sparkles size={15} /> Curated for your next move</div>
       </div>
       {loading ? (
@@ -1078,19 +1110,35 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
         </div>
       ) : (
         <div className="job-grid">
-          {jobs.map((job, index) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              index={index}
-              saved={savedIds.includes(job.id)}
-              applied={appliedIds.includes(job.id)}
-              onSave={() => onSave(job)}
-              onSkip={() => onSkip(job)}
-              onApply={() => onApply(job)}
-              onDetails={() => onDetails(job)}
-            />
-          ))}
+          {(() => {
+            let filtered = jobs;
+            if (filterExperience) {
+              const [min, max] = filterExperience === "10plus" ? [10, 999] : filterExperience.split("-").map(Number);
+              filtered = filtered.filter((job) => {
+                const exp = job.experience != null ? Number(job.experience) : 0;
+                return filterExperience === "10plus" ? exp >= 10 : exp >= min && exp <= max;
+              });
+            }
+            if (filterLocation) {
+              filtered = filtered.filter((job) => {
+                const wm = String(job.workMode || "").toLowerCase();
+                return wm === filterLocation.toLowerCase();
+              });
+            }
+            return filtered.map((job, index) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                index={index}
+                saved={savedIds.includes(job.id)}
+                applied={appliedIds.includes(job.id)}
+                onSave={() => onSave(job)}
+                onSkip={() => onSkip(job)}
+                onApply={() => onApply(job)}
+                onDetails={() => onDetails(job)}
+              />
+            ));
+          })()}
         </div>
       )}
     </>
@@ -1116,6 +1164,7 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
         {workMode !== "unspecified" && <span className="tag tag-mode">{job.workMode}</span>}
         {job.external && <span className="tag tag-external">External</span>}
         {experienceRange(job) && <span className="tag">{experienceRange(job)}</span>}
+        {job.matchScore > 0 && <span className="tag tag-match">{job.matchScore}% match</span>}
       </div>
       <div className="salary-line"><span>{moneyRange(job)}</span><span className="salary-caption">annual compensation</span></div>
       <div className="job-description">

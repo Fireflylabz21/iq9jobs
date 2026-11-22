@@ -2,9 +2,29 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Users: authenticated users can read/write their own profile only
     match /users/{userId} {
       allow read, create, update, delete: if request.auth != null
         && request.auth.uid == userId;
+    }
+
+    // Jobs: anyone can read active jobs; recruiters/admins manage their own
+    match /jobs/{jobId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == resource.data.recruiterId;
+      allow update, delete: if request.auth != null
+        && (request.auth.uid == resource.data.recruiterId
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Candidate reviews: recruiters manage reviews for their jobs; candidates read own
+    match /candidate_reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null
+        && request.auth.uid == resource.data.recruiterId;
     }
   }
 }
