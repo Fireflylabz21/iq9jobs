@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "158957737500",
+    "project_id": "devait-jobs",
+    "storage_bucket": "devait-jobs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:158957737500:android:7a44d73c7f6238fcd971d9",
+        "android_client_info": {
+          "package_name": "com.fireflylabz.devaitjobs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUBXhQFsFo1_RfKZLCPyq0S9BIg7T_Xjk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

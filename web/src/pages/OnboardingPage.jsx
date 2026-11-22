@@ -163,7 +163,7 @@ export default function OnboardingPage({ user, busy, error, onSubmit }) {
           </div>
         ) : (
           <form onSubmit={(event) => { event.preventDefault(); if (step < steps.length - 1) setStep(step + 1); else setStep(resumeStepIndex); }}>
-            <div className="onboarding-eyebrow"><span className="agent-dot">iq</span> YOUR IQ9 AGENT</div>
+            <div className="onboarding-eyebrow"><span className="agent-dot">Devait</span> YOUR DEVAIT AGENT</div>
             <h1>{step === 0 ? `Hi${form.fullName ? `, ${form.fullName.split(" ")[0]}` : ""}. Let's get to know you.` : current.label}</h1>
             <p className="muted-copy">{step === 0 ? current.label : "A few details help us find opportunities that fit."}</p>
             <div className="onboarding-field">

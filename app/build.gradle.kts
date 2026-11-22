@@ -9,10 +9,10 @@ plugins {
 }
 
 android {
-  namespace = "com.example.brevityjobs"
+  namespace = "com.fireflylabz.devaitjobs"
   compileSdk = 35
   defaultConfig {
-    applicationId = "com.example.brevityjobs"
+    applicationId = "com.fireflylabz.devaitjobs"
     minSdk = 24
     targetSdk = 35
     versionCode = 1

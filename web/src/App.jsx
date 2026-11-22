@@ -89,7 +89,7 @@ function readList(key) {
 
 function saveList(name, value, user) {
   const next = [...new Set(value)];
-  const key = `iq9:${user.uid}:${name}`;
+  const key = `devait:${user.uid}:${name}`;
   localStorage.setItem(key, JSON.stringify(next));
   return next;
 }
@@ -187,8 +187,8 @@ function LoadingScreen({ label }) {
 
 function Brand() {
   return (
-    <a className="brand" href="#" aria-label="iq9 Jobs home">
-      <span className="brand-mark">iq<span>9</span></span>
+    <a className="brand" href="#" aria-label="Devait Jobs home">
+      <span className="brand-mark">Devait<span>Jobs</span></span>
       <span className="brand-name">jobs<span>.</span></span>
     </a>
   );
@@ -388,7 +388,7 @@ function AuthScreen({ configured }) {
               <span className="google-mark" aria-hidden="true">G</span> Continue with Google
             </button>
             <p className="auth-switch">
-              {mode === "create" ? "Already have an account?" : "New to iq9?"}{" "}
+              {mode === "create" ? "Already have an account?" : "New to Devait Jobs?"}{" "}
               <button
                 className="text-button"
                 onClick={() => {
@@ -411,7 +411,7 @@ export default function RouterApp() {
   const { user, role, ready, isRecruiter, isAdmin, signOut } = useRole();
 
   if (!ready) {
-    return <LoadingScreen label="Connecting to iq9 Jobs" />;
+    return <LoadingScreen label="Connecting to Devait Jobs" />;
   }
 
   if (!user) {
@@ -466,7 +466,7 @@ export default function RouterApp() {
       setAppliedIds([]);
       return;
     }
-    const prefix = `iq9:${user.uid}:`;
+    const prefix = `devait:${user.uid}:`;
     setSavedIds(readList(`${prefix}saved`));
     setSkippedIds(readList(`${prefix}skipped`));
     setAppliedIds(readList(`${prefix}applied`));
@@ -748,7 +748,7 @@ export default function RouterApp() {
               );
               setProfile(seekerProfile);
               setOnboardingComplete(true);
-              setNotice("Profile created. Welcome to iq9 Jobs.");
+              setNotice("Profile created. Welcome to Devait Jobs.");
             } catch (submitError) {
               setError(submitError.message || "Could not save your profile.");
             } finally {
@@ -1139,13 +1139,13 @@ function ApplicationKanban({ appliedIds, jobs }) {
 function AboutScreen() {
   return (
     <div className="about-page">
-      <div className="about-hero"><div className="about-mark">iq<span>9</span></div><div className="eyebrow">ABOUT IQ9 JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
+      <div className="about-hero"><div className="about-mark">Devait<span>Jobs</span></div><div className="eyebrow">ABOUT DEVAIT JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
       <div className="about-values">
         <div><span className="value-icon"><CircleHelp size={18} /></span><strong>Clarity first</strong><p>Know what the role asks for before you apply.</p></div>
         <div><span className="value-icon"><Heart size={18} /></span><strong>People matter</strong><p>We make room for a better connection between people and teams.</p></div>
         <div><span className="value-icon"><Sparkles size={18} /></span><strong>Less noise</strong><p>Spend your attention on the opportunities that matter.</p></div>
       </div>
-      <div className="about-note">iq9 Jobs · Find your next move.</div>
+      <div className="about-note">Devait Jobs · Find your next move.</div>
     </div>
   );
 }

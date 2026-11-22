@@ -142,7 +142,7 @@ export default function SettingsPage({ user, profile, busy, onSave }) {
             <button className="text-button reset-link" onClick={() => { handlePasswordReset().then(() => alert(`Password reset email sent to ${user.email}.`)).catch((err) => setFormError(err.message || "Could not send reset email.")); }} disabled={busy}>Send password reset email</button>
           </section>
           <section className="settings-link-grid">
-            <button className="settings-link-card" onClick={() => setShowAbout(true)}><span className="settings-heading-icon"><Info size={18} /></span><span><strong>About iq9 Jobs</strong><small>Our approach to better hiring</small></span><ArrowRight size={17} /></button>
+            <button className="settings-link-card" onClick={() => setShowAbout(true)}><span className="settings-heading-icon"><Info size={18} /></span><span><strong>About Devait Jobs</strong><small>Our approach to better hiring</small></span><ArrowRight size={17} /></button>
             <button className="settings-link-card" onClick={() => {}} disabled={busy}><span className="settings-heading-icon settings-icon-red"><LogOut size={18} /></span><span><strong>Sign out</strong><small>Sign out from this device</small></span><ArrowRight size={17} /></button>
           </section>
         </>
@@ -155,13 +155,13 @@ function AboutPage({ onBack }) {
   return (
     <div className="about-page">
       <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to settings</button>
-      <div className="about-hero"><div className="about-mark">iq<span>9</span></div><div className="eyebrow">ABOUT IQ9 JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
+      <div className="about-hero"><div className="about-mark">Devait<span>Jobs</span></div><div className="eyebrow">ABOUT DEVAIT JOBS</div><h1>A clearer path to<br /><span>work that fits.</span></h1><p>We believe finding your next role should feel focused, transparent, and human.</p></div>
       <div className="about-values">
         <div><span className="value-icon"><UserRound size={18} /></span><strong>Clarity first</strong><p>Know what the role asks for before you apply.</p></div>
         <div><span className="value-icon"><ShieldCheck size={18} /></span><strong>People matter</strong><p>We make room for a better connection between people and teams.</p></div>
         <div><span className="value-icon"><Sparkles size={18} /></span><strong>Less noise</strong><p>Spend your attention on the opportunities that matter.</p></div>
       </div>
-      <div className="about-note">iq9 Jobs · Find your next move.</div>
+      <div className="about-note">Devait Jobs · Find your next move.</div>
     </div>
   );
 }

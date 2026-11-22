@@ -1,5 +1,5 @@
 <resources>
 
-    <style name="Theme.Iq9Assessment" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.DevaitJobs" parent="android:Theme.Material.Light.NoActionBar" />
 
 </resources>
