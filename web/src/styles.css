@@ -69,6 +69,12 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .button:not(:disabled):active { transform: translateY(1px); }
 .button-primary { background: linear-gradient(110deg, #226fe8, #7161eb); color: white; box-shadow: 0 7px 22px #4165ef26; }
 .button-primary:not(:disabled):hover { background: linear-gradient(110deg, #3281f5, #8374ff); }
+.apply-btn.apply-high { background: linear-gradient(110deg, #10b981, #059669); color: white; box-shadow: 0 7px 22px #10b98126; }
+.apply-btn.apply-high:not(:disabled):hover { background: linear-gradient(110deg, #34d399, #059669); }
+.apply-btn.apply-med { background: linear-gradient(110deg, #f59e0b, #d97706); color: white; box-shadow: 0 7px 22px #f59e0b26; }
+.apply-btn.apply-med:not(:disabled):hover { background: linear-gradient(110deg, #fbbf24, #d97706); }
+.apply-btn.apply-low { background: linear-gradient(110deg, #ef4444, #dc2626); color: white; box-shadow: 0 7px 22px #ef444426; }
+.apply-btn.apply-low:not(:disabled):hover { background: linear-gradient(110deg, #f87171, #dc2626); }
 .button-secondary { border-color: #2b374b; background: #151d2b; color: #d3dced; }
 .button-secondary:not(:disabled):hover { background: #1b2638; border-color: #46536b; }
 .button-google { border-color: #29364a; background: #111827; color: #edf2fb; }
@@ -218,6 +224,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .sidebar-stat { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #202b3c; border-radius: 10px; background: linear-gradient(145deg, #0f1724, #0a101b); }
 .sidebar-stat-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #69748c; text-transform: uppercase; }
 .sidebar-stat-value { font-size: 16px; font-weight: 800; color: #e0e6f0; letter-spacing: -.02em; }
+
+/* Clickable stat tiles */
+.sidebar-stat.stat-clickable { cursor: pointer; transition: .15s ease; }
+.sidebar-stat.stat-clickable:hover { border-color: #438eea; background: #121b2c; }
 
 /* Topbar center items */
 .topbar-center { display: flex; align-items: center; gap: 12px; }

@@ -445,6 +445,8 @@ export default function RouterApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [filterExperience, setFilterExperience] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
+  const [sortBy, setSortBy] = useState("match");
+  const [matchWarning, setMatchWarning] = useState(null);
 
   // Load seeker profile + onboarding status
   useEffect(() => {
@@ -631,11 +633,11 @@ export default function RouterApp() {
       const matched = jobSkills.filter((js) => profileSkills.includes(js)).length;
       const matchPct = Math.round((matched / jobSkills.length) * 100);
       if (matchPct < 50) {
-        setError(`You need at least 50% skill match to apply. Your match: ${matchPct}%.`);
+        setMatchWarning({ jobTitle: job.title, matchPct });
         return;
       }
     } else if (jobSkills.length > 0 && profileSkills.length === 0) {
-      setError("Please complete your profile with skills before applying.");
+      setMatchWarning({ jobTitle: job.title, matchPct: 0 });
       return;
     }
 
@@ -867,6 +869,10 @@ export default function RouterApp() {
         appliedIds={appliedIds}
         filterExperience={filterExperience}
         filterLocation={filterLocation}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        setFilterExperience={setFilterExperience}
+        setFilterLocation={setFilterLocation}
         onSave={toggleSaved}
         onSkip={skipJob}
         onApply={recordApplication}
@@ -883,19 +889,19 @@ export default function RouterApp() {
 
           {/* Profile stats card */}
           <div className="sidebar-stats">
-            <div className="sidebar-stat">
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("settings"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Profile</div>
               <div className="sidebar-stat-value">{user.displayName || user.email || "Candidate"}</div>
             </div>
-            <div className="sidebar-stat">
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("jobs"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Matching Jobs</div>
               <div className="sidebar-stat-value">{matchingJobs}</div>
             </div>
-            <div className="sidebar-stat">
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("applied"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Applied</div>
               <div className="sidebar-stat-value">{appliedIds.length}</div>
             </div>
-            <div className="sidebar-stat">
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("saved"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Saved</div>
               <div className="sidebar-stat-value">{savedIds.length}</div>
             </div>
@@ -952,26 +958,6 @@ export default function RouterApp() {
             )}
             {role === ROLES.SEEKER && (
               <>
-                <NavButton
-                  active={screen === "jobs"}
-                  icon={<BriefcaseBusiness size={18} />}
-                  onClick={() => {
-                    setScreen("jobs");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  Discover roles
-                </NavButton>
-                <NavButton
-                  active={screen === "saved"}
-                  icon={<Star size={18} />}
-                  onClick={() => {
-                    setScreen("saved");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  Saved jobs <span className="nav-count">{savedIds.length}</span>
-                </NavButton>
                 <NavButton
                   active={screen === "applied"}
                   icon={<Check size={18} />}
@@ -1058,13 +1044,27 @@ export default function RouterApp() {
         {applyBrowserUrl && (
           <InAppBrowser url={applyBrowserUrl} onClose={() => setApplyBrowserUrl(null)} />
         )}
+        {matchWarning && (
+          <div className="modal-backdrop" onClick={() => setMatchWarning(null)}>
+            <div className="details-modal">
+              <div className="modal-top">
+                <span className="eyebrow">MATCH SCORE</span>
+                <button className="icon-button" onClick={() => setMatchWarning(null)}><X size={19} /></button>
+              </div>
+              <p>You need at least 50% skill match to apply to “{matchWarning.jobTitle}”. Your match: {matchWarning.matchPct}%.</p>
+              <div className="settings-actions">
+                <button className="button button-secondary" onClick={() => setMatchWarning(null)}>OK</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
 // --- Seeker sub-components ---
 
-function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, filterExperience, filterLocation, onSave, onSkip, onApply, onDetails }) {
+function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, savedIds, appliedIds, filterExperience, filterLocation, sortBy, setSortBy, setFilterExperience, setFilterLocation, onSave, onSkip, onApply, onDetails }) {
   const emptyTitle = screen === "saved" ? "Nothing saved yet" : screen === "applied" ? "No applications yet" : "No roles found";
   const emptyText = screen === "saved"
     ? "Save roles that catch your eye and find them here."
@@ -1097,6 +1097,10 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
             <option value="Hybrid">Hybrid</option>
             <option value="Onsite">Onsite</option>
           </select>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
+            <option value="match">Sort: Top Match</option>
+            <option value="recent">Sort: Recent</option>
+          </select>
           <button className="filter-clear" onClick={() => { setFilterExperience(""); setFilterLocation(""); }}>Clear filters</button>
         </div>
         <div className="toolbar-note"><Sparkles size={15} /> Curated for your next move</div>
@@ -1124,6 +1128,11 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
                 const wm = String(job.workMode || "").toLowerCase();
                 return wm === filterLocation.toLowerCase();
               });
+            }
+            if (sortBy === "match") {
+              filtered = [...filtered].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+            } else if (sortBy === "recent") {
+              filtered = [...filtered].sort((a, b) => new Date(b.postedAt || 0) - new Date(a.postedAt || 0));
             }
             return filtered.map((job, index) => (
               <JobCard
@@ -1181,7 +1190,7 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
         {applied ? (
           <button className="button button-applied" disabled><Check size={16} /> Applied</button>
         ) : (
-          <button className="button button-primary" onClick={onApply} disabled={!safeExternalUrl(job.applyUrl)}><ExternalLink size={16} /> Apply</button>
+          <button className={`button button-primary apply-btn ${job.matchScore > 50 ? "apply-high" : job.matchScore >= 30 ? "apply-med" : "apply-low"}`} onClick={onApply} disabled={!safeExternalUrl(job.applyUrl)}><ExternalLink size={16} /> Apply</button>
         )}
       </div>
       <button className="details-link" onClick={onDetails}>View role details <ArrowRight size={14} /></button>
@@ -1287,7 +1296,7 @@ function JobDetailsModal({ job, saved, applied, onClose, onSave, onSkip, onApply
         <div className="details-section"><div className="section-label">REQUIRED SKILLS</div><div className="skill-list">{job.coreSkills.length ? job.coreSkills.map((skill) => <span className="skill-tag" key={skill}>{skill}</span>) : <span className="muted-copy">No required skills listed.</span>}</div></div>
         <div className="details-actions">
           <button className={`button ${saved ? "button-saved" : "button-secondary"}`} onClick={onSave}><Star size={16} fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save role"}</button>
-          {applied ? <button className="button button-applied" disabled><Check size={16} /> Application opened</button> : <button className="button button-primary" disabled={!safeExternalUrl(job.applyUrl)} onClick={onApply}><ExternalLink size={16} /> Open application link</button>}
+          {applied ? <button className="button button-applied" disabled><Check size={16} /> Application opened</button> : <button className={`button button-primary apply-btn ${job.matchScore > 50 ? "apply-high" : job.matchScore >= 30 ? "apply-med" : "apply-low"}`} disabled={!safeExternalUrl(job.applyUrl)} onClick={onApply}><ExternalLink size={16} /> Open application link</button>}
         </div>
         <button className="details-skip" onClick={onSkip}>Not for me — pass on this role</button>
       </section>
