@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, Star, ShieldCheck, MapPin, X, Users } from "lucide-react";
+import { ArrowLeft, Check, Star, ShieldCheck, MapPin, X, Users, Filter, Sliders } from "lucide-react";
 import { useRole } from "../context/RoleContext.jsx";
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../backend.js";
@@ -13,6 +13,25 @@ const DECLINE_REASONS = [
   "Compensation expectation out of range",
   "Selected candidate with closer tech stack fit",
   "Other",
+];
+
+const NOTICE_PERIOD_OPTIONS = [
+  ["IMMEDIATE", "Immediate"],
+  ["LESS_THAN_15_DAYS", "< 15 days"],
+  ["THIRTY_DAYS", "30 days"],
+  ["SIXTY_PLUS_DAYS", "60+ days"],
+];
+
+const RELOCATION_OPTIONS = [
+  ["open", "Open to relocate"],
+  ["prefer-not", "Prefer not to relocate"],
+  ["negotiable", "Negotiable"],
+];
+
+const WORK_MODE_OPTIONS = [
+  ["remote", "Remote"],
+  ["hybrid", "Hybrid"],
+  ["onsite", "Onsite"],
 ];
 
 function skillsOverlap(jobSkills, candidateSkills) {
@@ -44,6 +63,15 @@ export default function CandidateReviewQueue({ onBack }) {
   const [declineReason, setDeclineReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // Granular logistics filters
+  const [filters, setFilters] = useState({
+    noticePeriod: "",
+    relocationReadiness: "",
+    currentCTC: "",
+    expectedCTC: "",
+    remoteHybridPreference: "",
+  });
 
   useEffect(() => {
     if (!user || !db) return;
@@ -94,6 +122,11 @@ export default function CandidateReviewQueue({ onBack }) {
               targetTitle: profile.targetTitle || "",
               expectedLocation: profile.expectedLocation || "",
               agentDetails: data.agentDetails || {},
+              noticePeriod: profile.noticePeriod || "",
+              relocationReadiness: profile.relocationReadiness || "",
+              currentCTC: profile.currentCTC || "",
+              expectedCTC: profile.expectedCTC || "",
+              remoteHybridPreference: profile.remoteHybridPreference || "",
             };
           })
           .filter((c) => c.topSkills && c.topSkills.length > 0);
@@ -103,74 +136,45 @@ export default function CandidateReviewQueue({ onBack }) {
       }
     };
 
-    const loadApplicants = async () => {
-      try {
-        const jobIds = jobs.map((j) => j.id);
-        if (jobIds.length === 0) {
-          if (active) setApplicants([]);
-          return;
-        }
-        const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          const job = jobs.find((j) => j.id === data.jobId);
-          const candidate = candidates.find((c) => c.id === data.candidateId);
-          return {
-            id: data.id,
-            jobId: data.jobId,
-            jobTitle: job ? job.title : "Unknown role",
-            candidateId: data.candidateId,
-            candidateName: candidate ? candidate.displayName : "Candidate",
-            candidateEmail: candidate ? candidate.email : "",
-            action: data.action,
-            status: data.status,
-            reason: data.reason || "",
-            createdAt: data.createdAt,
-          };
-        }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        if (active) setApplicants(list);
-      } catch (e) {
-        if (active) setError(`Could not load applicants: ${e.message || "unknown error"}`);
-      }
-    };
-
     loadJobs();
     loadCandidates();
 
     return () => { active = false; };
   }, [user, db]);
 
+  const loadApplicants = async () => {
+    const jobIds = jobs.map((j) => j.id);
+    if (jobIds.length === 0) { setApplicants([]); return; }
+    try {
+      const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => {
+        const data = d.data();
+        const job = jobs.find((j) => j.id === data.jobId);
+        const candidate = candidates.find((c) => c.id === data.candidateId);
+        return {
+          id: data.id,
+          jobId: data.jobId,
+          jobTitle: job ? job.title : "Unknown role",
+          candidateId: data.candidateId,
+          candidateName: candidate ? candidate.displayName : "Candidate",
+          candidateEmail: candidate ? candidate.email : "",
+          candidateProfile: candidate ? candidate.profile : {},
+          action: data.action,
+          status: data.status,
+          reason: data.reason || "",
+          createdAt: data.createdAt,
+        };
+      }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      setApplicants(list);
+    } catch (e) {
+      setError(`Could not load applicants: ${e.message || "unknown error"}`);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "applicants") {
-      void (async () => {
-        const jobIds = jobs.map((j) => j.id);
-        if (jobIds.length === 0) { setApplicants([]); return; }
-        try {
-          const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
-          const snap = await getDocs(q);
-          const list = snap.docs.map((d) => {
-            const data = d.data();
-            const job = jobs.find((j) => j.id === data.jobId);
-            const candidate = candidates.find((c) => c.id === data.candidateId);
-            return {
-              id: data.id,
-              jobId: data.jobId,
-              jobTitle: job ? job.title : "Unknown role",
-              candidateId: data.candidateId,
-              candidateName: candidate ? candidate.displayName : "Candidate",
-              candidateEmail: candidate ? candidate.email : "",
-              action: data.action,
-              status: data.status,
-              reason: data.reason || "",
-              createdAt: data.createdAt,
-            };
-          }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-          setApplicants(list);
-        } catch (e) {
-          setError(`Could not load applicants: ${e.message || "unknown error"}`);
-        }
-      })();
+      loadApplicants();
     }
   }, [activeTab, jobs, candidates, user, db]);
 
@@ -185,6 +189,31 @@ export default function CandidateReviewQueue({ onBack }) {
       return { job, candidates: scored };
     }).filter((g) => g.candidates.length > 0);
   }, [jobs, candidates]);
+
+  // Filter candidates by granular logistics criteria
+  const passesFilters = (candidate) => {
+    if (filters.noticePeriod && candidate.noticePeriod !== filters.noticePeriod) return false;
+    if (filters.relocationReadiness && candidate.relocationReadiness !== filters.relocationReadiness) return false;
+    if (filters.remoteHybridPreference && candidate.remoteHybridPreference !== filters.remoteHybridPreference) return false;
+    if (filters.currentCTC && candidate.currentCTC != null && Number(candidate.currentCTC) > Number(filters.currentCTC)) return false;
+    if (filters.expectedCTC && candidate.expectedCTC != null && Number(candidate.expectedCTC) > Number(filters.expectedCTC)) return false;
+    return true;
+  };
+
+  const filteredApplicants = useMemo(() => {
+    return applicants.filter((app) => {
+      const candidate = candidates.find((c) => c.id === app.candidateId);
+      if (!candidate) return true;
+      return passesFilters(candidate);
+    });
+  }, [applicants, candidates, filters]);
+
+  const filteredGrouped = useMemo(() => {
+    return grouped.map(({ job, candidates: jobCandidates }) => ({
+      job,
+      candidates: jobCandidates.filter((c) => passesFilters(c)),
+    })).filter((g) => g.candidates.length > 0);
+  }, [grouped, filters]);
 
   const recordAction = async (jobId, candidateId, action, reason = "") => {
     setBusy(true);
@@ -204,26 +233,7 @@ export default function CandidateReviewQueue({ onBack }) {
       setActionShowing(null);
       setDeclineReason("");
       if (activeTab === "applicants") {
-        const q = query(collection(db, "candidate_reviews"), where("recruiterId", "==", user.uid));
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          const job = jobs.find((j) => j.id === data.jobId);
-          const candidate = candidates.find((c) => c.id === data.candidateId);
-          return {
-            id: data.id,
-            jobId: data.jobId,
-            jobTitle: job ? job.title : "Unknown role",
-            candidateId: data.candidateId,
-            candidateName: candidate ? candidate.displayName : "Candidate",
-            candidateEmail: candidate ? candidate.email : "",
-            action: data.action,
-            status: data.status,
-            reason: data.reason || "",
-            createdAt: data.createdAt,
-          };
-        }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        setApplicants(list);
+        await loadApplicants();
       }
     } catch (err) {
       setError(err.message || "Could not record review action.");
@@ -237,6 +247,8 @@ export default function CandidateReviewQueue({ onBack }) {
     if (score >= 40) return <span className="match-score match-med">{score}% match</span>;
     return <span className="match-score match-low">{score}% match</span>;
   };
+
+  const hasActiveFilters = Object.values(filters).some((v) => v !== "" && v !== null);
 
   if (loading) {
     return (
@@ -275,27 +287,74 @@ export default function CandidateReviewQueue({ onBack }) {
         </div>
       </div>
 
+      {/* Granular Logistics Filters */}
+      <div className="recruiter-card">
+        <div className="filter-bar">
+          <button className="filter-toggle" onClick={() => setActiveTab(activeTab)} title="Filters">
+            <Sliders size={16} />
+            <span>Filters</span>
+            {hasActiveFilters && <span className="nav-count">{Object.values(filters).filter(Boolean).length}</span>}
+          </button>
+          <div className="filter-grid">
+            <div className="filter-field">
+              <label>Notice Period</label>
+              <select value={filters.noticePeriod} onChange={(e) => setFilters({ ...filters, noticePeriod: e.target.value })}>
+                <option value="">Any</option>
+                {NOTICE_PERIOD_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="filter-field">
+              <label>Relocation</label>
+              <select value={filters.relocationReadiness} onChange={(e) => setFilters({ ...filters, relocationReadiness: e.target.value })}>
+                <option value="">Any</option>
+                {RELOCATION_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="filter-field">
+              <label>Work Preference</label>
+              <select value={filters.remoteHybridPreference} onChange={(e) => setFilters({ ...filters, remoteHybridPreference: e.target.value })}>
+                <option value="">Any</option>
+                {WORK_MODE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="filter-field">
+              <label>Max Current CTC (LPA)</label>
+              <input type="number" value={filters.currentCTC} onChange={(e) => setFilters({ ...filters, currentCTC: e.target.value })} placeholder="0" />
+            </div>
+            <div className="filter-field">
+              <label>Max Expected CTC (LPA)</label>
+              <input type="number" value={filters.expectedCTC} onChange={(e) => setFilters({ ...filters, expectedCTC: e.target.value })} placeholder="0" />
+            </div>
+            {hasActiveFilters && (
+              <button className="filter-clear" onClick={() => setFilters({ noticePeriod: "", relocationReadiness: "", currentCTC: "", expectedCTC: "", remoteHybridPreference: "" })}>
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="recruiter-tabs">
         <button
           key="applicants"
           className={`recruiter-tab ${activeTab === "applicants" ? "recruiter-tab-active" : ""}`}
           onClick={() => setActiveTab("applicants")}
         >
-          <Users size={16} /> Applicants <span className="nav-count">{applicants.length}</span>
+          <Users size={16} /> Applicants <span className="nav-count">{filteredApplicants.length}</span>
         </button>
         <button
           key="review"
           className={`recruiter-tab ${activeTab === "review" ? "recruiter-tab-active" : ""}`}
           onClick={() => setActiveTab("review")}
         >
-          <Check size={16} /> Review Candidates <span className="nav-count">{grouped.reduce((sum, g) => sum + g.candidates.length, 0)}</span>
+          <Check size={16} /> Review Candidates <span className="nav-count">{filteredGrouped.reduce((sum, g) => sum + g.candidates.length, 0)}</span>
         </button>
       </div>
 
       {/* Applicants - flat list */}
       {activeTab === "applicants" && (
         <div className="recruiter-card">
-          {applicants.length === 0 ? (
+          {filteredApplicants.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><Users size={25} /></div>
               <h2>No applicants yet</h2>
@@ -309,31 +368,40 @@ export default function CandidateReviewQueue({ onBack }) {
                     <th>Candidate</th>
                     <th>Email</th>
                     <th>Role Applied</th>
+                    <th>Notice</th>
+                    <th>CTC</th>
+                    <th>Work Mode</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {applicants.map((app) => (
-                    <tr key={app.id}>
-                      <td>
-                        <div className="admin-user-cell">
-                          <div className="avatar admin-avatar">{app.candidateName.charAt(0).toUpperCase()}</div>
-                          <div>{app.candidateName}</div>
-                        </div>
-                      </td>
-                      <td>{app.candidateEmail || "—"}</td>
-                      <td>{app.jobTitle}</td>
-                      <td><span className={`role-badge role-${(app.status || "submitted").toLowerCase()}`}>{(app.status || "Submitted").charAt(0).toUpperCase() + (app.status || "submitted").slice(1)}</span></td>
-                      <td>
-                        {app.status === "DECLINED" && (
-                          <button className="button button-secondary" onClick={() => setActionShowing(ACTION_DECLINE)} disabled={busy}>
-                            Decline Reason
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredApplicants.map((app) => {
+                    const candidate = candidates.find((c) => c.id === app.candidateId);
+                    return (
+                      <tr key={app.id}>
+                        <td>
+                          <div className="admin-user-cell">
+                            <div className="avatar admin-avatar">{app.candidateName.charAt(0).toUpperCase()}</div>
+                            <div>{app.candidateName}</div>
+                          </div>
+                        </td>
+                        <td>{app.candidateEmail || "—"}</td>
+                        <td>{app.jobTitle}</td>
+                        <td>{app.candidateProfile?.noticePeriod || candidate?.noticePeriod || "—"}</td>
+                        <td>{candidate?.currentCTC ? `₹${candidate.currentCTC} LPA` : "—"}</td>
+                        <td>{candidate?.remoteHybridPreference || "—"}</td>
+                        <td><span className={`role-badge role-${(app.status || "submitted").toLowerCase()}`}>{(app.status || "Submitted").charAt(0).toUpperCase() + (app.status || "submitted").slice(1)}</span></td>
+                        <td>
+                          {app.status === "DECLINED" && (
+                            <button className="button button-secondary" onClick={() => setActionShowing(ACTION_DECLINE)} disabled={busy}>
+                              Decline Reason
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -344,7 +412,7 @@ export default function CandidateReviewQueue({ onBack }) {
       {/* Review Candidates - grouped by job with match scores */}
       {activeTab === "review" && (
         <div className="recruiter-card">
-          {grouped.length === 0 ? (
+          {filteredGrouped.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><Check size={25} /></div>
               <h2>No candidates to review</h2>
@@ -352,7 +420,7 @@ export default function CandidateReviewQueue({ onBack }) {
             </div>
           ) : (
             <>
-              {grouped.map(({ job, candidates: jobCandidates }) => (
+              {filteredGrouped.map(({ job, candidates: jobCandidates }) => (
                 <section key={job.id} className="review-job-card">
                   <div className="review-job-header">
                     <div>
@@ -371,6 +439,9 @@ export default function CandidateReviewQueue({ onBack }) {
                           <th>Candidate</th>
                           <th>Email</th>
                           <th>Match Score</th>
+                          <th>Notice</th>
+                          <th>CTC</th>
+                          <th>Work Mode</th>
                           <th>Candidate Skills</th>
                           <th>Action</th>
                         </tr>
@@ -388,6 +459,9 @@ export default function CandidateReviewQueue({ onBack }) {
                               </td>
                               <td>{candidate.email || "—"}</td>
                               <td>{matchBadge(candidate.matchScore)}</td>
+                              <td>{candidate.noticePeriod || "—"}</td>
+                              <td>{candidate.expectedCTC ? `₹${candidate.expectedCTC} LPA` : "—"}</td>
+                              <td>{candidate.remoteHybridPreference || "—"}</td>
                               <td>
                                 <div className="skill-list" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                   {candidate.topSkills.slice(0, 4).map((s) => <span key={s} className="skill-tag" style={{ fontSize: 11, padding: "2px 8px" }}>{s}</span>)}

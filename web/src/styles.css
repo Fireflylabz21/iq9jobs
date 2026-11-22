@@ -193,6 +193,27 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .profile-chip-copy span { overflow: hidden; color: #78869c; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-chip .icon-button:hover { color: var(--red); }
 
+/* Hide sidebar during onboarding */
+.onboarding-page.onboarding-full ~ .main-panel,
+.onboarding-page.onboarding-full + .sidebar { display: none !important; }
+.onboarding-page.onboarding-full ~ .main-panel { margin-left: 0 !important; width: 100% !important; }
+
+/* Onboarding full page layout */
+.onboarding-page.onboarding-full { min-height: 100vh; display: flex; flex-direction: column; }
+.onboarding-page.onboarding-full .onboarding-card { max-width: 700px; margin: 0 auto; }
+
+/* Filter bar */
+.filter-bar { margin-bottom: 16px; padding: 14px; border: 1px solid #202b3c; border-radius: 10px; background: linear-gradient(145deg, #0f1724, #0a101b); }
+.filter-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 1px solid #27344a; border-radius: 9px; background: #0e1522; color: #8592a7; cursor: pointer; font-size: 12px; font-weight: 600; text-align: left; transition: .15s ease; }
+.filter-toggle:hover { border-color: #438eea; color: #7bcfff; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
+.filter-field { display: flex; flex-direction: column; gap: 6px; }
+.filter-field label { font-size: 10px; font-weight: 700; color: #69748c; text-transform: uppercase; letter-spacing: .08em; }
+.filter-field select, .filter-field input { width: 100%; padding: 8px 10px; border: 1px solid #27344a; border-radius: 8px; background: #0a101b; color: #c5cede; font-size: 12px; }
+.filter-field select:focus, .filter-field input:focus { border-color: #438eea; outline: none; }
+.filter-clear { padding: 8px 14px; border: 1px solid #27344a; border-radius: 8px; background: transparent; color: #8592a7; font-size: 11px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.filter-clear:hover { color: #fb7185; border-color: #783b4a; }
+
 /* Sidebar profile stats */
 .sidebar-stats { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 18px 0 24px; padding: 0 8px; }
 .sidebar-stat { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #202b3c; border-radius: 10px; background: linear-gradient(145deg, #0f1724, #0a101b); }

@@ -610,6 +610,22 @@ export default function RouterApp() {
       setError("This application link is invalid or unavailable.");
       return;
     }
+
+    // Enforce 50% skill match threshold before applying
+    const profileSkills = (profile.topSkills || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean);
+    const jobSkills = (job.coreSkills || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean);
+    if (jobSkills.length > 0 && profileSkills.length > 0) {
+      const matched = jobSkills.filter((js) => profileSkills.includes(js)).length;
+      const matchPct = Math.round((matched / jobSkills.length) * 100);
+      if (matchPct < 50) {
+        setError(`You need at least 50% skill match to apply. Your match: ${matchPct}%.`);
+        return;
+      }
+    } else if (jobSkills.length > 0 && profileSkills.length === 0) {
+      setError("Please complete your profile with skills before applying.");
+      return;
+    }
+
     setApplyBrowserUrl(url);
     const next = saveList("applied", [...appliedIds, job.id], user);
     setAppliedIds(next);
@@ -701,6 +717,7 @@ export default function RouterApp() {
           user={user}
           busy={busy}
           error={error}
+          hideSidebar={!onboardingComplete}
           onSubmit={async (details) => {
             setBusy(true);
             setError("");
@@ -748,6 +765,10 @@ export default function RouterApp() {
                 resumePath: details.resumePath || null,
                 parsedResumeText: details.parsedResumeText || "",
                 rawSkills: Array.isArray(details.rawSkills) ? details.rawSkills : [],
+                currentCTC: details.currentCTC || null,
+                expectedCTC: details.expectedCTC || null,
+                relocationReadiness: details.relocationReadiness || "open",
+                remoteHybridPreference: details.remoteHybridPreference || "remote",
               };
               await setDoc(
                 doc(db, "users", user.uid),
