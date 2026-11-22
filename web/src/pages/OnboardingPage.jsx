@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, UserRound, Paperclip } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
-import { db, supabase } from "../backend.js";
+import { db } from "../backend.js";
 import { ResumeParser } from "../ats/ResumeParser.jsx";
 
 export default function OnboardingPage({ user, busy, error, onSubmit, hideSidebar }) {
@@ -28,7 +28,6 @@ export default function OnboardingPage({ user, busy, error, onSubmit, hideSideba
   });
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeParsed, setResumeParsed] = useState(null);
-  const [resumeUploading, setResumeUploading] = useState(false);
 
   const steps = [
     { key: "fullName", label: "What should we call you?", hint: "Your full name", type: "text" },
@@ -108,26 +107,6 @@ export default function OnboardingPage({ user, busy, error, onSubmit, hideSideba
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    let uploadError = null;
-    if (resumeFile && supabase) {
-      setResumeUploading(true);
-      try {
-        const fileName = `resumes/${user.uid}/${Date.now()}_${resumeFile.name}`;
-        const { error: err } = await supabase.storage.from("resumes").upload(fileName, resumeFile);
-        if (err) throw err;
-        setForm((prev) => ({ ...prev, resumePath: fileName }));
-      } catch (err) {
-        uploadError = err.message || "Resume upload failed";
-      } finally {
-        setResumeUploading(false);
-      }
-    }
-
-    if (uploadError) {
-      setError(uploadError);
-      return;
-    }
-
     onSubmit(form);
   };
 
@@ -174,8 +153,8 @@ export default function OnboardingPage({ user, busy, error, onSubmit, hideSideba
             </div>
             {error && <div className="alert alert-error" role="alert">{error}</div>}
             <div className="onboarding-actions">
-              <button type="button" className="button button-secondary" onClick={() => setReview(false)} disabled={busy || resumeUploading}><ArrowLeft size={16} /> Edit details</button>
-              <button className="button button-primary" disabled={busy || resumeUploading}>{busy || resumeUploading ? "Saving profile…" : "Confirm & continue"} <ArrowRight size={17} /></button>
+              <button type="button" className="button button-secondary" onClick={() => setReview(false)} disabled={busy}><ArrowLeft size={16} /> Edit details</button>
+              <button className="button button-primary" disabled={busy}>{busy ? "Saving profile…" : "Confirm & continue"} <ArrowRight size={17} /></button>
             </div>
           </form>
         ) : isResumeStep ? (
@@ -194,14 +173,17 @@ export default function OnboardingPage({ user, busy, error, onSubmit, hideSideba
                   <Paperclip size={16} /> {resumeFile.name} ({Math.round(resumeFile.size / 1024)} KB)
                 </div>
               )}
-              {resumeUploading && <span className="parsing">Uploading resume…</span>}
             </div>
             {error && <div className="alert alert-error" role="alert">{error}</div>}
             <div className="onboarding-actions">
-              <button className="button button-primary" disabled={busy || resumeUploading}>{resumeParsed ? "Continue to details" : "Upload a resume to continue"} <ArrowRight size={17} /></button>
+              {resumeParsed ? (
+                <button className="button button-primary" disabled={busy} onClick={() => setStep(resumeStepIndex + 1)}>Continue to details <ArrowRight size={17} /></button>
+              ) : (
+                <button className="button button-primary" disabled={busy}>Upload a resume to continue <ArrowRight size={17} /></button>
+              )}
               <button type="button" className="button button-secondary" onClick={() => setStep(resumeStepIndex + 1)} style={{ marginLeft: 10, background: "transparent", color: "#8da0ba", border: "1px solid #2b3952" }}>Skip resume</button>
             </div>
-            <div className="onboarding-footnote"><ShieldCheck size={15} /> Your resume is stored privately and only shared with recruiters you apply to.</div>
+            <div className="onboarding-footnote"><ShieldCheck size={15} /> Resume is parsed in your browser only — nothing is uploaded to a server for parsing.</div>
           </div>
         ) : (
           <form onSubmit={(event) => { event.preventDefault(); if (step < steps.length - 1) setStep(step + 1); else setReview(true); }}>

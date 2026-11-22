@@ -722,9 +722,6 @@ export default function RouterApp() {
             setBusy(true);
             setError("");
             try {
-              if (!supabase) {
-                throw new Error("Supabase is not configured. Add its web settings to .env.local.");
-              }
               const skills = details.primarySkillsets
                 .split(",")
                 .map((skill) => skill.trim())
@@ -737,23 +734,32 @@ export default function RouterApp() {
                 email: user.email || "",
                 yearsExperience: Number(details.yearsExperience),
               };
-              const { error: subscriberError } = await supabase
-                .from("subscribers")
-                .insert({
-                  full_name: agentDetails.fullName,
-                  email: agentDetails.email,
-                  phone_number: agentDetails.phoneNumber,
-                  primary_skillsets: agentDetails.primarySkillsets,
-                  secondary_skillsets: "",
-                  years_experience: agentDetails.yearsExperience,
-                  current_company: agentDetails.currentCompany,
-                  current_ctc: "Not provided",
-                  notice_period: agentDetails.noticePeriod,
-                  current_location: agentDetails.currentLocation,
-                  expected_location: agentDetails.expectedLocation,
-                  status: "Active",
-                });
-              if (subscriberError) throw subscriberError;
+              // Save to Supabase subscribers (non-fatal if table not yet created)
+              if (supabase) {
+                try {
+                  const { error: subscriberError } = await supabase
+                    .from("subscribers")
+                    .insert({
+                      full_name: agentDetails.fullName,
+                      email: agentDetails.email,
+                      phone_number: agentDetails.phoneNumber,
+                      primary_skillsets: agentDetails.primarySkillsets,
+                      secondary_skillsets: "",
+                      years_experience: agentDetails.yearsExperience,
+                      current_company: agentDetails.currentCompany,
+                      current_ctc: "Not provided",
+                      notice_period: agentDetails.noticePeriod,
+                      current_location: agentDetails.currentLocation,
+                      expected_location: agentDetails.expectedLocation,
+                      status: "Active",
+                    });
+                  if (subscriberError) {
+                    console.warn("Supabase subscribers insert skipped:", subscriberError.message);
+                  }
+                } catch (e) {
+                  console.warn("Supabase subscribers insert skipped:", e.message);
+                }
+              }
               const seekerProfile = {
                 ...emptyProfile,
                 targetTitle: agentDetails.targetRole,
