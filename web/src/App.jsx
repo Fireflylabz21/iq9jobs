@@ -887,10 +887,36 @@ export default function RouterApp() {
         />
       );
     }
+    if (screen === "applied") {
+      const appliedJobsList = jobs.filter((j) => appliedIds.includes(j.id));
+      return (
+        <SeekerFeed
+          screen={screen}
+          jobs={appliedJobsList}
+          allJobs={jobs}
+          loading={loadingJobs}
+          query={query}
+          onQueryChange={setQuery}
+          savedIds={savedIds}
+          appliedIds={appliedIds}
+          filterExperience={filterExperience}
+          filterLocation={filterLocation}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          setFilterExperience={setFilterExperience}
+          setFilterLocation={setFilterLocation}
+          onSave={toggleSaved}
+          onSkip={skipJob}
+          onApply={recordApplication}
+          onDetails={setSelectedJob}
+        />
+      );
+    }
+    const matchingJobsList = jobs.filter((j) => (j.matchScore || 0) > 50);
     return (
       <SeekerFeed
         screen={screen}
-        jobs={visibleJobs}
+        jobs={matchingJobsList}
         allJobs={jobs}
         loading={loadingJobs}
         query={query}
@@ -930,6 +956,10 @@ export default function RouterApp() {
             <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("related"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Related Jobs</div>
               <div className="sidebar-stat-value">{relatedJobs}</div>
+            </div>
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("applied"); setMobileMenuOpen(false); }}>
+              <div className="sidebar-stat-label">Applied</div>
+              <div className="sidebar-stat-value">{appliedIds.length}</div>
             </div>
             <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("saved"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Saved</div>
