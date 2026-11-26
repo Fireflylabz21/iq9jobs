@@ -861,7 +861,7 @@ export default function RouterApp() {
       }} />;
     }
     if (screen === "about") return <AboutScreen />;
-    if (screen === "kanban") return <ApplicationKanban appliedIds={appliedIds} jobs={jobs} />;
+    if (screen === "kanban") return <ApplicationDashboard appliedIds={appliedIds} jobs={jobs} />;
     if (screen === "related") {
       const relatedJobsList = jobs.filter((j) => (j.matchScore || 0) <= 50);
       return (
@@ -1147,7 +1147,7 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
       </div>
       <div className="job-toolbar">
         <div className="search-box"><Search size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Search role, company, skill…" aria-label="Search jobs" /></div>
-        {(screen === "jobs" || screen === "related") && (
+        {(screen === "jobs" || screen === "related" || screen === "applied") && (
           <div className="filter-chips">
             <select value={filterExperience} onChange={(e) => setFilterExperience(e.target.value)} className="filter-select">
               <option value="">Experience</option>
@@ -1264,51 +1264,93 @@ function JobCard({ job, index, saved, applied, onSave, onSkip, onApply, onDetail
   );
 }
 
-function ApplicationKanban({ appliedIds, jobs }) {
-  const statuses = ["SUBMITTED", "VIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "OFFER", "ARCHIVED"];
+function ApplicationDashboard({ appliedIds, jobs }) {
+  const statuses = [
+    { key: "SUBMITTED", label: "Submitted", icon: "📝", color: "#3b82f6" },
+    { key: "VIEWED", label: "Viewed", icon: "👁️", color: "#8b5cf6" },
+    { key: "SHORTLISTED", label: "Shortlisted", icon: "⭐", color: "#10b981" },
+    { key: "INTERVIEW_SCHEDULED", label: "Interview", icon: "📅", color: "#f59e0b" },
+    { key: "OFFER", label: "Offer", icon: "🎉", color: "#8b5cf6" },
+    { key: "ARCHIVED", label: "Archived", icon: "📦", color: "#6b7280" },
+  ];
   const appliedJobs = jobs.filter((j) => appliedIds.includes(j.id));
+  const [selectedStatus, setSelectedStatus] = useState(null);
+
   const byStatus = useMemo(() => {
     const map = {};
-    statuses.forEach((s) => (map[s] = []));
+    statuses.forEach((s) => (map[s.key] = []));
     appliedJobs.forEach((job) => {
-      // default all applied to SUBMITTED since we don't store per-app status locally yet
       map["SUBMITTED"].push(job);
     });
     return map;
   }, [appliedJobs]);
 
+  const totalApplications = appliedJobs.length;
+  const stats = statuses.map((s) => ({
+    ...s,
+    count: byStatus[s.key]?.length || 0,
+  }));
+
   return (
     <>
       <div className="page-heading">
         <div>
-          <div className="eyebrow">APPLICATION PIPELINE</div>
-          <h1>Application Kanban</h1>
+          <div className="eyebrow">APPLICATION DASHBOARD</div>
+          <h1>Application Pipeline</h1>
           <p>Track your applications from submission to offer.</p>
         </div>
+        <div className="heading-metric">
+          <span className="metric-dot" />
+          <strong>{totalApplications}</strong> total applications
+        </div>
       </div>
-      <div className="job-grid">
-        {statuses.map((status) => (
-          <div key={status} className="kanban-column">
-            <div className="kanban-header">
-              <h3>{status.charAt(0) + status.slice(1).toLowerCase()}</h3>
-              <span className="kanban-count">{byStatus[status].length}</span>
-            </div>
-            <div className="kanban-cards">
-              {byStatus[status].map((job) => (
-                <article key={job.id} className="job-card kanban-card">
-                  <div className="company-heading">
-                    <div className="company-name">{job.companyName}</div>
-                    <div className="company-location"><MapPin size={12} /> {job.location}</div>
-                  </div>
-                  <h3>{job.title}</h3>
-                  {moneyRange(job) && <div className="salary-line"><span>{moneyRange(job)}</span></div>}
-                  <span className="tag">Submitted</span>
-                </article>
-              ))}
-            </div>
+
+      {selectedStatus ? (
+        <div className="kanban-detail-view">
+          <div className="kanban-detail-header">
+            <button className="button button-secondary" onClick={() => setSelectedStatus(null)}>
+              <ArrowLeft size={16} /> Back to Dashboard
+            </button>
+            <h2>{selectedStatus.label} ({byStatus[selectedStatus.key]?.length || 0})</h2>
           </div>
-        ))}
-      </div>
+          <div className="job-grid">
+            {byStatus[selectedStatus.key]?.map((job, index) => (
+              <article key={job.id} className="job-card" style={{ "--card-index": index }}>
+                <div className="company-heading">
+                  <div className="company-name">{job.companyName}</div>
+                  <div className="company-location"><MapPin size={12} /> {job.location}</div>
+                </div>
+                <h3>{job.title}</h3>
+                {moneyRange(job) && <div className="salary-line"><span>{moneyRange(job)}</span></div>}
+                <span className="tag">{selectedStatus.label}</span>
+              </article>
+            ))}
+          </div>
+          {byStatus[selectedStatus.key]?.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon"><BriefcaseBusiness size={25} /></div>
+              <h2>No applications in {selectedStatus.label.toLowerCase()}</h2>
+              <p>Applications will appear here as you progress.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="dashboard-grid">
+          {stats.map((stat) => (
+            <button
+              key={stat.key}
+              className={`dashboard-tile ${stat.key}`}
+              style={{ "--tile-color": stat.color }}
+              onClick={() => setSelectedStatus(stat)}
+            >
+              <div className="tile-icon">{stat.icon}</div>
+              <div className="tile-label">{stat.label}</div>
+              <div className="tile-count">{stat.count}</div>
+              <div className="tile-bar" style={{ background: stat.color }} />
+            </button>
+          ))}
+        </div>
+      )}
     </>
   );
 }
