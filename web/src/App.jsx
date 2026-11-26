@@ -603,6 +603,11 @@ export default function RouterApp() {
       return skillMatch || titleMatch || locationMatch;
     }).length;
   }, [jobs, profile.topSkills, profile.targetTitle, profile.expectedLocation]);
+
+  const relatedJobs = useMemo(() => {
+    if (!jobs.length) return 0;
+    return jobs.filter((job) => (job.matchScore || 0) <= 50).length;
+  }, [jobs]);
   const visibleJobs = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return jobs.filter((job) => {
@@ -857,6 +862,31 @@ export default function RouterApp() {
     }
     if (screen === "about") return <AboutScreen />;
     if (screen === "kanban") return <ApplicationKanban appliedIds={appliedIds} jobs={jobs} />;
+    if (screen === "related") {
+      const relatedJobsList = jobs.filter((j) => (j.matchScore || 0) <= 50);
+      return (
+        <SeekerFeed
+          screen={screen}
+          jobs={relatedJobsList}
+          allJobs={jobs}
+          loading={loadingJobs}
+          query={query}
+          onQueryChange={setQuery}
+          savedIds={savedIds}
+          appliedIds={appliedIds}
+          filterExperience={filterExperience}
+          filterLocation={filterLocation}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          setFilterExperience={setFilterExperience}
+          setFilterLocation={setFilterLocation}
+          onSave={toggleSaved}
+          onSkip={skipJob}
+          onApply={recordApplication}
+          onDetails={setSelectedJob}
+        />
+      );
+    }
     return (
       <SeekerFeed
         screen={screen}
@@ -897,13 +927,17 @@ export default function RouterApp() {
               <div className="sidebar-stat-label">Matching Jobs</div>
               <div className="sidebar-stat-value">{matchingJobs}</div>
             </div>
-            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("applied"); setMobileMenuOpen(false); }}>
-              <div className="sidebar-stat-label">Applied</div>
-              <div className="sidebar-stat-value">{appliedIds.length}</div>
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("related"); setMobileMenuOpen(false); }}>
+              <div className="sidebar-stat-label">Related Jobs</div>
+              <div className="sidebar-stat-value">{relatedJobs}</div>
             </div>
             <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("saved"); setMobileMenuOpen(false); }}>
               <div className="sidebar-stat-label">Saved</div>
               <div className="sidebar-stat-value">{savedIds.length}</div>
+            </div>
+            <div className="sidebar-stat stat-clickable" onClick={() => { setScreen("kanban"); setMobileMenuOpen(false); }}>
+              <div className="sidebar-stat-label">Kanban</div>
+              <div className="sidebar-stat-value">{appliedIds.length}</div>
             </div>
           </div>
 
@@ -1083,27 +1117,29 @@ function SeekerFeed({ screen, jobs, allJobs, loading, query, onQueryChange, save
       </div>
       <div className="job-toolbar">
         <div className="search-box"><Search size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Search role, company, skill…" aria-label="Search jobs" /></div>
-        <div className="filter-chips">
-          <select value={filterExperience} onChange={(e) => setFilterExperience(e.target.value)} className="filter-select">
-            <option value="">Experience</option>
-            <option value="0-2">0–2 years</option>
-            <option value="3-5">3–5 years</option>
-            <option value="6-10">6–10 years</option>
-            <option value="10plus">10+ years</option>
-          </select>
-          <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="filter-select">
-            <option value="">Location</option>
-            <option value="Remote">Remote</option>
-            <option value="Hybrid">Hybrid</option>
-            <option value="Onsite">Onsite</option>
-          </select>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
-            <option value="match">Sort: Top Match</option>
-            <option value="recent">Sort: Recent</option>
-          </select>
-          <button className="filter-clear" onClick={() => { setFilterExperience(""); setFilterLocation(""); }}>Clear filters</button>
-        </div>
-        <div className="toolbar-note"><Sparkles size={15} /> Curated for your next move</div>
+        {(screen === "jobs" || screen === "related") && (
+          <div className="filter-chips">
+            <select value={filterExperience} onChange={(e) => setFilterExperience(e.target.value)} className="filter-select">
+              <option value="">Experience</option>
+              <option value="0-2">0–2 years</option>
+              <option value="3-5">3–5 years</option>
+              <option value="6-10">6–10 years</option>
+              <option value="10plus">10+ years</option>
+            </select>
+            <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="filter-select">
+              <option value="">Location</option>
+              <option value="Remote">Remote</option>
+              <option value="Hybrid">Hybrid</option>
+              <option value="Onsite">Onsite</option>
+            </select>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
+              <option value="match">Sort: Top Match</option>
+              <option value="recent">Sort: Recent</option>
+            </select>
+            <button className="filter-clear" onClick={() => { setFilterExperience(""); setFilterLocation(""); }}>Clear filters</button>
+          </div>
+        )}
+        <div className="toolbar-note"></div>
       </div>
       {loading ? (
         <div className="jobs-loading"><div className="loading-spinner" /> Loading open roles…</div>
